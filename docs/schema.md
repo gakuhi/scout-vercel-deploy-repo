@@ -10,7 +10,28 @@
 
 ---
 
-## ER図
+## ER図（概要）
+
+```mermaid
+erDiagram
+    students ||--o{ student_product_links : "links"
+    students ||--o{ synced_es_entries : "has"
+    students ||--o{ synced_researches : "has"
+    students ||--o{ synced_interview_sessions : "has"
+    students ||--o{ synced_activities : "has"
+    students ||--o| student_integrated_profiles : "has"
+    students ||--o| privacy_settings : "configures"
+    students ||--o{ scouts : "receives"
+
+    companies ||--o{ company_members : "has"
+    companies ||--o{ scouts : "sends"
+    companies ||--o| company_plans : "subscribes"
+
+    company_members ||--o{ scouts : "sends"
+    company_members ||--o{ saved_searches : "saves"
+```
+
+## ER図（詳細）
 
 ```mermaid
 erDiagram
@@ -192,10 +213,6 @@ erDiagram
     }
 
     %% ===== リレーション =====
-    companies ||--o{ company_members : "has"
-    companies ||--o{ scouts : "sends"
-    companies ||--o| company_plans : "subscribes"
-
     students ||--o{ student_product_links : "links"
     students ||--o{ synced_es_entries : "has"
     students ||--o{ synced_researches : "has"
@@ -204,6 +221,10 @@ erDiagram
     students ||--o| student_integrated_profiles : "has"
     students ||--o| privacy_settings : "configures"
     students ||--o{ scouts : "receives"
+
+    companies ||--o{ company_members : "has"
+    companies ||--o{ scouts : "sends"
+    companies ||--o| company_plans : "subscribes"
 
     company_members ||--o{ scouts : "sends"
     company_members ||--o{ saved_searches : "saves"
