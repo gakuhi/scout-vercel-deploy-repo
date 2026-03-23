@@ -1,8 +1,10 @@
 # すべてを無視
 *
 
-# 仕様書のみ追跡
+# ドキュメントのみ追跡
 !requirements.md
+!docs/
+!docs/**
 
 # gitignore自体も追跡
 !.gitignore
