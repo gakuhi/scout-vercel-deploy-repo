@@ -1,0 +1,8 @@
+# すべてを無視
+*
+
+# 仕様書のみ追跡
+!requirements.md
+
+# gitignore自体も追跡
+!.gitignore
