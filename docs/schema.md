@@ -6,7 +6,7 @@
 
 - **DBMS**: PostgreSQL（Supabase）
 - **認証**: Supabase Auth
-- **テーブル数**: 13
+- **テーブル数**: 14
 
 ---
 
@@ -59,6 +59,7 @@ erDiagram
         text bio
         boolean is_profile_public
         timestamptz data_consent_granted_at
+        timestamptz deleted_at
         timestamptz created_at
         timestamptz updated_at
     }
@@ -76,6 +77,9 @@ erDiagram
         text city
         text street
         text phone
+        boolean is_verified
+        timestamptz verified_at
+        timestamptz deleted_at
         timestamptz created_at
         timestamptz updated_at
     }
@@ -86,7 +90,7 @@ erDiagram
         text email
         text last_name
         text first_name
-        text role "owner / admin / member"
+        company_member_role role "owner / admin / member"
         boolean is_active
         timestamptz created_at
         timestamptz updated_at
@@ -188,6 +192,19 @@ erDiagram
         timestamptz expires_at
     }
 
+    %% ===== 監査 =====
+    audit_logs {
+        uuid id PK
+        uuid actor_id
+        text actor_role
+        text action
+        text target_type
+        uuid target_id
+        jsonb details
+        text ip_address
+        timestamptz created_at
+    }
+
     %% ===== MVP後 =====
     saved_searches {
         uuid id PK
@@ -236,7 +253,8 @@ erDiagram
 
 | Enum | 値 | 説明 |
 |---|---|---|
-| `user_role` | `student`, `company_member`, `admin` | ユーザー種別 |
+| `user_role` | `student`, `company_owner`, `company_admin`, `company_member` | ユーザー種別（auth.users の raw_app_meta_data.role に格納） |
+| `company_member_role` | `owner`, `admin`, `member` | 企業内ロール（company_members.role に格納） |
 | `product_source` | `smart_es`, `company_ai`, `interview_ai`, `syukatsu` | 連携元プロダクト |
 | `scout_status` | `sent`, `read`, `accepted`, `declined`, `expired` | スカウトの状態遷移 |
 | `academic_type` | `liberal_arts`, `science`, `other` | 文理区分 |
@@ -273,6 +291,7 @@ erDiagram
 | bio | TEXT | | 自己紹介文 |
 | is_profile_public | BOOLEAN | DEFAULT false | 企業への公開フラグ |
 | data_consent_granted_at | TIMESTAMPTZ | | データ連携同意日時 |
+| deleted_at | TIMESTAMPTZ | | 論理削除日時（30日後に物理削除） |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
@@ -292,6 +311,9 @@ erDiagram
 | city | TEXT | | 市区町村 |
 | street | TEXT | | 番地以降 |
 | phone | TEXT | | 代表電話番号 |
+| is_verified | BOOLEAN | DEFAULT false | 運営による審査完了フラグ |
+| verified_at | TIMESTAMPTZ | | 審査完了日時 |
+| deleted_at | TIMESTAMPTZ | | 論理削除日時（30日後に物理削除） |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
@@ -306,7 +328,7 @@ erDiagram
 | email | TEXT | NOT NULL | |
 | last_name | TEXT | | 姓 |
 | first_name | TEXT | | 名 |
-| role | TEXT | DEFAULT 'member' | `owner` / `admin` / `member` |
+| role | company_member_role | DEFAULT 'member' | `owner` / `admin` / `member` |
 | is_active | BOOLEAN | DEFAULT true | アカウント有効フラグ |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
@@ -403,12 +425,12 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 |---|---|---|---|
 | id | UUID | PK, DEFAULT gen_random_uuid() | |
 | student_id | UUID | NOT NULL, UNIQUE, FK → students(id) | |
-| show_real_name | BOOLEAN | DEFAULT true | 実名を表示 |
-| show_university | BOOLEAN | DEFAULT true | 大学名を表示 |
-| show_es_entries | BOOLEAN | DEFAULT true | ES情報を表示 |
-| show_researches | BOOLEAN | DEFAULT true | 企業分析情報を表示 |
-| show_interview_data | BOOLEAN | DEFAULT true | 面接練習情報を表示 |
-| show_activities | BOOLEAN | DEFAULT true | 就活活動情報を表示 |
+| show_real_name | BOOLEAN | DEFAULT false | 実名を表示 |
+| show_university | BOOLEAN | DEFAULT false | 大学名を表示 |
+| show_es_entries | BOOLEAN | DEFAULT false | ES情報を表示 |
+| show_researches | BOOLEAN | DEFAULT false | 企業分析情報を表示 |
+| show_interview_data | BOOLEAN | DEFAULT false | 面接練習情報を表示 |
+| show_activities | BOOLEAN | DEFAULT false | 就活活動情報を表示 |
 | show_contact_info | BOOLEAN | DEFAULT false | 連絡先を表示 |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
@@ -455,6 +477,22 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
+### 14. audit_logs — 監査ログ
+
+セキュリティ上重要な操作を記録する。`internal` スキーマに配置し、クライアントからのRPCアクセスを防ぐ。
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| actor_id | UUID | | 操作を行ったユーザーのID |
+| actor_role | TEXT | | 操作者のロール |
+| action | TEXT | NOT NULL | 操作種別（例: `role_changed`, `privacy_updated`, `scout_sent`） |
+| target_type | TEXT | | 対象のテーブル名（例: `company_members`, `privacy_settings`） |
+| target_id | UUID | | 対象レコードのID |
+| details | JSONB | | 変更前後の値など詳細情報 |
+| ip_address | TEXT | | リクエスト元IPアドレス |
+| created_at | TIMESTAMPTZ | DEFAULT now() | |
+
 ---
 
 ## インデックス
@@ -476,6 +514,10 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | scouts | (student_id, status) | 学生のスカウト一覧 |
 | scouts | (company_id, sent_at DESC) | 企業のスカウト履歴 |
 | student_product_links | (external_user_id, product) | 外部ID逆引き |
+| companies | (is_verified) WHERE is_verified = true | 審査済み企業の絞り込み |
+| audit_logs | (actor_id) | 操作者別ログ検索 |
+| audit_logs | (target_type, target_id) | 対象別ログ検索 |
+| audit_logs | (created_at DESC) | 時系列ログ閲覧 |
 
 ---
 
@@ -492,16 +534,18 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | scouts | 自分宛のみ | — | status, read_at, responded_at のみ | — |
 | companies | 全企業閲覧可 | — | — | — |
 
-### 企業担当者（company_member ロール）
+### 企業担当者（company_owner / company_admin / company_member ロール）
+
+全操作の前提条件: **所属企業の `is_verified = true`**（未審査企業は学生データへのアクセス不可）
 
 | テーブル | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
-| students | is_profile_public = true のみ（privacy_settingsに基づきカラム制限） | — | — | — |
+| students | is_verified = true かつ is_profile_public = true のみ（**View経由で公開カラムのみ**） | — | — | — |
 | synced_* | 対象学生の privacy_settings が許可している場合のみ | — | — | — |
 | student_integrated_profiles | 対象学生が公開中の場合のみ | — | — | — |
-| scouts | 自社のスカウトのみ | 自社として送信 | 自社のスカウトのみ | — |
-| companies | 全企業閲覧可 | — | 自社のみ | — |
-| company_members | 自社メンバーのみ | — | 自分のレコードのみ | — |
+| scouts | 自社のスカウトのみ | 自社として送信（is_verified = true の場合のみ） | 自社のスカウトのみ | — |
+| companies | 全企業閲覧可 | — | owner/admin のみ自社を更新 | — |
+| company_members | 自社メンバーのみ | owner のみ追加 | owner のみ更新 | owner のみ削除 |
 | saved_searches | 自分のもののみ | 作成可 | 自分のもののみ | 自分のもののみ |
 
 ---
