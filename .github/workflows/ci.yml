@@ -14,7 +14,7 @@ jobs:
           node-version: 20
           cache: "npm"
       - run: npm ci
-      - run: npm rebuild lightningcss
+      - run: npm install --no-save lightningcss-linux-x64-gnu
       - run: npm run lint
       - run: npm run build
         env:
