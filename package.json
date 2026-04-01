@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write .",
-    "gen:types": "npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > src/shared/types/database.ts"
+    "gen:types": "npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > src/shared/types/database.ts",
+    "prepare": "git config core.hooksPath .github/hooks"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.47.0",
