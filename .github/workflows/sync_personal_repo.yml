@@ -16,21 +16,16 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Debug token
+      - name: Prepare repo
         run: |
-          if [ -z "${{ secrets.PERSONAL_REPO_TOKEN }}" ]; then
-            echo "TOKEN EMPTY"
-            exit 1
-          else
-            echo "TOKEN OK"
-          fi
-
-      - name: Push to personal repo
-        run: |
+          rm -rf .github/workflows
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Push to personal repo
+        run: |
           git remote remove mirror || true
           git remote add mirror https://x-access-token:${{ secrets.PERSONAL_REPO_TOKEN }}@github.com/gakuhi/scout-vercel-deploy-repo.git
-
+          git add -A
+          git commit -m "Prepare deploy mirror" || true
           git push mirror HEAD:main --force
