@@ -11,7 +11,7 @@ export default async function Home() {
   return (
     <main className="flex min-h-screen items-center justify-center">
       {isConnected ? (
-        <h1 className="text-2xl font-bold">Supabase接続OK！</h1>
+        <h1 className="text-2xl font-bold">Supabase接続OK!!!!</h1>
       ) : (
         <h1 className="text-2xl text-red-500">
           接続失敗: {error.message} <br />
