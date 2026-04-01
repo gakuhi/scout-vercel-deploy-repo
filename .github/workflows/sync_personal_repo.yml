@@ -14,11 +14,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Push to personal repo
-        run: |
-          git remote add mirror https://x-access-token:${{ secrets.PERSONAL_REPO_TOKEN }}@github.com/gakuhi/scout-vercel-deploy-repo.git
-          git push mirror main --force
       - name: Debug token
         run: |
           if [ -z "${{ secrets.PERSONAL_REPO_TOKEN }}" ]; then
@@ -27,4 +22,9 @@ jobs:
           else
             echo "TOKEN OK"
           fi
+      - name: Push to personal repo
+        run: |
+          git remote add mirror https://x-access-token:${{ secrets.PERSONAL_REPO_TOKEN }}@github.com/gakuhi/scout-vercel-deploy-repo.git
+          git push mirror main --force
+
 
