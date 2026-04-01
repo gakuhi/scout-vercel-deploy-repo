@@ -19,3 +19,12 @@ jobs:
         run: |
           git remote add mirror https://x-access-token:${{ secrets.PERSONAL_REPO_TOKEN }}@github.com/gakuhi/scout-vercel-deploy-repo.git
           git push mirror main --force
+      - name: Debug token
+        run: |
+          if [ -z "${{ secrets.PERSONAL_REPO_TOKEN }}" ]; then
+            echo "TOKEN EMPTY"
+            exit 1
+          else
+            echo "TOKEN OK"
+          fi
+
