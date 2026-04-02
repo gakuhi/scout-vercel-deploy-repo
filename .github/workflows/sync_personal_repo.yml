@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - staging
 
 jobs:
   sync:
@@ -24,8 +25,9 @@ jobs:
 
       - name: Push to personal repo
         run: |
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           git remote remove mirror || true
           git remote add mirror https://x-access-token:${{ secrets.PERSONAL_REPO_TOKEN }}@github.com/gakuhi/scout-vercel-deploy-repo.git
           git add -A
           git commit -m "Prepare deploy mirror" || true
-          git push mirror HEAD:main --force
+          git push mirror HEAD:${BRANCH_NAME} --force
