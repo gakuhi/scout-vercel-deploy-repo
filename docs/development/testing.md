@@ -185,10 +185,24 @@ it("学生一覧を取得してフルネームに変換する", async () => {
 
 プロジェクトルートの `e2e/` ディレクトリに `.spec.ts` ファイルを置く。ユニットテスト（`src/` 内の `.test.ts`）と明確に分離するため。
 
+`features/` のフォルダ名に合わせて機能単位でフォルダを切る。共通ページ（トップページ等）は `e2e/` 直下に置く。
+
 ```
 e2e/
-└── home.spec.ts
+├── auth/
+│   ├── login.spec.ts
+│   └── signup.spec.ts
+├── student/
+│   └── dashboard.spec.ts
+├── company/
+│   └── members.spec.ts
+├── scout/
+│   ├── search.spec.ts
+│   └── send.spec.ts
+└── home.spec.ts              ← 共通ページ
 ```
+
+**テストファイルの単位:** ページまたはユーザーフロー1つにつき1ファイル。
 
 ## E2Eテストの判断基準
 
