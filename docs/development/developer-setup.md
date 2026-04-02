@@ -352,6 +352,30 @@ feat/xxx → PR → staging にマージ → ステージングで確認
 - **本番・staging の Supabase Key は共有しない**（セキュリティ考慮）
 - ローカルは `supabase start` で発行される Key を使う
 
+### デプロイの仕組み
+
+org リポ（kokoshiro-dev）から直接 Vercel に連携していないため、GitHub Actions で個人リポに同期し、そこから Vercel がデプロイする構成になっている。
+
+```
+kokoshiro-dev/scout-product（org リポ）
+  ↓ GitHub Actions（main / staging push 時に発火）
+gakuhi/scout-vercel-deploy-repo（個人リポ）
+  ↓ Vercel が自動検知
+デプロイ（main → Production / staging → Preview）
+```
+
+#### Vercel の環境と環境変数
+
+| Vercel 環境 | 対応ブランチ | 環境変数の設定場所 |
+|---|---|---|
+| **Production** | `main` | Vercel → Settings → Environment Variables（Production） |
+| **Preview** | `main` 以外（`staging` 等） | Vercel → Settings → Environment Variables（Preview） |
+
+- Production と Preview で異なる Supabase プロジェクトの接続情報を設定する
+- 環境変数は `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY` の3つ
+
+> **補足**: 将来 org プランをアップグレードすれば、org リポから直接 Vercel に連携でき、同期ワークフローは不要になる。
+
 ---
 
 ## 8. Git 運用ルール
