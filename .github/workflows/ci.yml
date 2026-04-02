@@ -16,7 +16,7 @@ jobs:
           echo "現在のソースブランチ: ${{ github.head_ref }}"
           exit 1
 
-  lint-and-build:
+  ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -28,21 +28,6 @@ jobs:
       - run: npm audit --audit-level=critical
       - run: npm run lint
       - run: npm run test
-      - run: npm run build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder"
-          SUPABASE_SERVICE_ROLE_KEY: "placeholder"
-
-  e2e:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20
-          cache: "npm"
-      - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run build
         env:
