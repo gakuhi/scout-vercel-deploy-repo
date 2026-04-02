@@ -5,6 +5,17 @@ on:
     branches: [main]
 
 jobs:
+  check-branch:
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: main への PR は staging からのみ許可
+        if: github.head_ref != 'staging'
+        run: |
+          echo "ERROR: main への PR は staging ブランチからのみ作成できます。"
+          echo "現在のソースブランチ: ${{ github.head_ref }}"
+          exit 1
+
   lint-and-build:
     runs-on: ubuntu-latest
     steps:
