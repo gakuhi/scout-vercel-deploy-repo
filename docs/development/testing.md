@@ -5,14 +5,16 @@
 | 種類 | ツール | 用途 |
 |---|---|---|
 | ユニットテスト | Vitest | 関数単体のテスト |
-| E2Eテスト | Playwright（#57 で導入予定） | ユーザー操作フローのテスト |
+| E2Eテスト | Playwright | ユーザー操作フローのテスト |
 
 ## コマンド
 
 ```bash
-npm run test           # テスト実行（1回）
+npm run test           # ユニットテスト実行（1回）
 npm run test:watch     # ファイル変更時に自動再実行
 npm run test:coverage  # カバレッジレポート付きで実行
+npm run test:e2e       # E2E テスト実行（ヘッドレス）
+npm run test:e2e:ui    # E2E テスト実行（UI モード・デバッグ用）
 ```
 
 ## テストの実行の仕組み
@@ -167,6 +169,51 @@ it("学生一覧を取得してフルネームに変換する", async () => {
 
 設定は `vitest.config.ts` の `coverage` セクションで管理している。
 
+## E2E テスト
+
+### ファイル配置
+
+E2E テストはプロジェクトルートの `e2e/` ディレクトリに置く。ユニットテスト（`src/` 内）と明確に分離するため。
+
+```
+e2e/
+└── home.spec.ts
+```
+
+### 書き方
+
+```ts
+import { test, expect } from "@playwright/test";
+
+test("ページが表示される", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("h1")).toBeVisible();
+});
+```
+
+### ローカル実行
+
+初回のみ、ブラウザのインストールが必要:
+
+```bash
+npx playwright install --with-deps chromium
+```
+
+その後は `npm run test:e2e` で実行できる。テスト実行時に Next.js 開発サーバーが自動で起動する（`playwright.config.ts` の `webServer` 設定）。
+
+デバッグ時は `npm run test:e2e:ui` で UI モードを使うと、ステップごとの実行やスクリーンショット確認ができる。
+
+### 設定
+
+`playwright.config.ts` で管理。主な設定:
+- **ブラウザ**: Chromium のみ（必要に応じて Firefox・Safari を追加可能）
+- **webServer**: ローカルでは `npm run dev`、CI では `npm run start`（ビルド済みアプリ）を自動起動
+- **リトライ**: CI では2回、ローカルでは0回
+
 ## CI
 
 PR 作成時に GitHub Actions で自動実行される。テストが失敗すると PR のマージがブロックされる。
+
+**実行されるジョブ:**
+- **lint-and-build** — lint → ユニットテスト → ビルド
+- **e2e** — ビルド → Playwright ブラウザインストール → E2E テスト
