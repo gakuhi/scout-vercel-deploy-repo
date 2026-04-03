@@ -1,9 +1,12 @@
 # Claude Code ルール
 
 ## Git ルール
-- main ブランチに直接 push しない。必ず feature ブランチから PR を出すこと
+- main / staging ブランチに直接 push しない。必ず feature ブランチから **staging** に PR を出すこと
 - コミット前に `npm run lint` を実行すること
 - 機密情報（.env.local、APIキー等）をコミットに含めないこと
+- `git push` や PR 作成はユーザーが明示的に指示した場合のみ行うこと（自動で push/PR しない）
+- 1 Issue = 1 PR。1つの PR に複数 Issue の変更を混ぜない
+- コミットは機能の論理単位で分ける（例:「認証API追加」「認証テスト追加」）
 
 ## ブランチ命名規則
 - `feat/xxx` — 新機能
