@@ -1,7 +1,7 @@
 # Claude Code ルール
 
 ## Git ルール
-- main / staging ブランチに直接 push しない。必ず feature ブランチから **staging** に PR を出すこと
+- main / staging ブランチに直接 push しない。必ず feature ブランチから **staging** に PR を出すこと（main への直接 PR は禁止。staging → main の昇格は別途行う）
 - コミット前に `npm run lint` を実行すること
 - 機密情報（.env.local、APIキー等）をコミットに含めないこと
 - `git push` や PR 作成はユーザーが明示的に指示した場合のみ行うこと（自動で push/PR しない）
