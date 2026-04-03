@@ -48,6 +48,8 @@ supabase/.branches/
 
 # claude
 .claude
+.agents
+skills
 
 # Sentry Config File
 .env.sentry-build-plugin

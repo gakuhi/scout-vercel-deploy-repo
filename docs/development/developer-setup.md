@@ -13,6 +13,7 @@
 | **Git** | 最新版 | ソース管理 | `git -v` でバージョンが表示される |
 | **Supabase CLI** | 最新版 | ローカル DB・マイグレーション管理 | `supabase --version` でバージョンが表示される |
 | **Claude Code** | 最新版 | AI アシスタント（チーム全員利用前提） | `claude -v` でバージョンが表示される |
+| **Docker Desktop** | 最新版 | Supabase ローカル環境の実行 | `docker -v` でバージョンが表示される |
 
 ### インストール手順
 
@@ -134,15 +135,6 @@ claude -v
 npm install -g @anthropic-ai/claude-code
 ```
 
----
-
-## 2. 推奨ツール
-
-| ツール | 用途 | 完了条件 |
-|---|---|---|
-| **Docker Desktop** | Supabase ローカル環境の実行に**必須** | `docker -v` でバージョンが表示される |
-| **VS Code** | エディタ | 起動できる |
-
 #### Docker Desktop
 
 Supabase ローカル環境（`supabase start`）に必要。
@@ -154,6 +146,14 @@ docker -v
 ```
 
 未インストールの場合は [公式サイト](https://www.docker.com/products/docker-desktop/) からダウンロードしてインストールする（macOS / Windows 共通）。
+
+---
+
+## 2. 推奨ツール
+
+| ツール | 用途 | 完了条件 |
+|---|---|---|
+| **VS Code** | エディタ | 起動できる |
 
 ### VS Code 推奨拡張機能
 
@@ -176,6 +176,9 @@ cd scout-product
 # 依存関係インストール
 npm install
 
+# Claude Code スキルのインストール（skills-lock.json から復元）
+npx skills install
+
 # E2E テスト用ブラウザのインストール（初回のみ）
 npx playwright install --with-deps chromium
 ```
@@ -185,6 +188,7 @@ npx playwright install --with-deps chromium
 ### 完了条件
 
 - `node_modules/` が生成されている
+- `npx skills install` でスキルがインストールされている
 - `npm run dev` でエラーなく開発サーバーが起動する
 
 ---
@@ -359,9 +363,29 @@ feat/xxx → PR → staging にマージ → ステージングで確認
 | ルール | 詳細 |
 |---|---|
 | main / staging への直 push | **禁止** |
-| 開発フロー | feature ブランチを切る → PR 作成 → 福田レビュー → マージ |
+| 開発フロー | feature ブランチを切る → Claude Code レビュー → PR 作成 → 福田レビュー → マージ |
 | ブランチ命名 | `feat/機能名`、`fix/バグ名` |
 | コミットメッセージ | 日本語 OK。変更内容が分かるように書く |
+
+### Claude Code によるコードレビュー
+
+PR を出す前に、Claude Code のレビュー機能でセルフチェックを行う。
+
+#### レビュー用コマンド
+
+| コマンド | 用途 |
+|---|---|
+| `/review` | コード変更をレビューし、ロジックエラー・セキュリティ・パフォーマンス等の問題を指摘する |
+| `/simplify` | 変更したコードの品質・効率を分析し、問題を**自動修正**する |
+
+#### PR 前のレビュー手順
+
+1. 実装が完了したら、Claude Code で `/review` を実行
+2. 指摘事項を確認・修正
+3. `/simplify` で自動修正できるものを修正
+4. PR を作成
+
+> **ルール**: PR を出す前に必ず `/review` を1回以上実行すること。レビュー指摘の重大なもの（セキュリティ・ロジックエラー）は修正してから PR を出す。
 
 ---
 
