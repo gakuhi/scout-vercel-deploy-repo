@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resend } from "@/lib/resend/client";
+import { getResend } from "@/lib/resend/client";
 
 export async function POST(request: Request) {
   if (process.env.NODE_ENV === "production") {
@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     );
   }
 
+  const resend = getResend();
   const { data, error } = await resend.emails.send({
     from: "Scout <onboarding@resend.dev>",
     to,
