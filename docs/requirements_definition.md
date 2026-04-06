@@ -107,6 +107,85 @@ MVPではこの一連の体験を最小限で成立させる。
 
 ## 🔵6. 技術スタック
 
+### 技術スタック全体図
+
+```mermaid
+graph TB
+    subgraph Users["ユーザー"]
+        Student["👤 学生"]
+        Company["🏢 企業"]
+    end
+
+    subgraph Vercel["Vercel"]
+        direction TB
+        CDN["CDN / Edge Network"]
+        NextApp["Next.js App Router"]
+        SA["Server Actions /<br/>Route Handlers"]
+        CDN --> NextApp --> SA
+    end
+
+    subgraph Frontend["フロントエンド"]
+        React["React + TypeScript"]
+        Tailwind["Tailwind CSS"]
+        ShadcnRadix["Shadcn/ui + Radix UI"]
+        RHF["React Hook Form + Zod"]
+    end
+
+    subgraph Supabase["Supabase"]
+        direction TB
+        Auth["Supabase Auth<br/>+ @supabase/ssr"]
+        DB["PostgreSQL<br/>+ RLS"]
+        Storage["Supabase Storage"]
+        Realtime["Realtime"]
+    end
+
+    subgraph AI["AI・データ処理"]
+        Claude["Claude API"]
+        Profile["AI統合プロフィール生成"]
+        Matching["AIマッチング"]
+        Claude --- Profile
+        Claude --- Matching
+    end
+
+    subgraph ExternalProducts["既存4プロダクト"]
+        Interview["面接練習AI"]
+        SmartES["スマートES"]
+        CompanyAI["企業分析AI"]
+        SugokaiJob["すごい就活"]
+    end
+
+    subgraph External["外部サービス"]
+        Resend["Resend<br/>メール送信"]
+        Stripe["Stripe<br/>決済（MVP後）"]
+        GitHub["GitHub<br/>CI/CD"]
+    end
+
+    subgraph Monitoring["モニタリング"]
+        Sentry["Sentry<br/>エラー監視"]
+        Axiom["Axiom<br/>ログ集約"]
+        VA["Vercel Analytics"]
+        VL["Vercel Logs"]
+        SL["Supabase Logs"]
+    end
+
+    Student --> CDN
+    Company --> CDN
+    NextApp -.-> Frontend
+    SA --> Supabase
+    SA --> AI
+    SA --> Resend
+    SA --> Stripe
+    ExternalProducts -- "データ同期<br/>（API / 共有DB / ETL）" --> DB
+    GitHub -- "自動デプロイ" --> Vercel
+    Vercel -.-> Monitoring
+    Supabase -.-> SL
+
+    style Vercel fill:#000,color:#fff
+    style Supabase fill:#3ecf8e,color:#000
+    style AI fill:#d4a574,color:#000
+    style ExternalProducts fill:#e8e8e8,color:#000
+```
+
 ### 6.1 フロントエンド
 
 | 技術 | 用途 |
@@ -132,9 +211,19 @@ MVPではこの一連の体験を最小限で成立させる。
 
 | 技術 | 用途 |
 | :---- | :---- |
-| **Supabase Auth** | 認証基盤。学生/企業のログイン、メール認証、MFA（TOTP） |
+| **Supabase Auth** | 認証基盤。学生: LINE連携 or マジックリンク、企業: マジックリンク + MFA（TOTP） |
 | **@supabase/ssr** | Cookie ベースのセッション管理。Next.js App Router との統合 |
 | **Row Level Security (RLS)** | DBレベルのアクセス制御。学生は自分のデータのみ、企業は審査完了後に公開プロフィールのみ閲覧可等 |
+
+#### 認証方式
+
+| ユーザー種別 | 認証方式 | 備考 |
+| :---- | :---- | :---- |
+| 学生 | **LINE連携（推奨）** or **マジックリンク** | LINE連携はOAuthフロー内で完結するためトラッキング情報が維持されやすい |
+| 企業（owner/admin） | **マジックリンク + MFA（TOTP必須）** | パスワードレスでフィッシングリスク排除。MFAでセキュリティ強化 |
+| 企業（member） | **マジックリンク** | MFAは任意 |
+
+※ 将来的にエンタープライズ企業向けにSSO（SAML）対応を追加する余地を残す。
 
 ロール設計・セッション管理・MFA要件の詳細は [セキュリティ要件書](operations/02-security-requirements.md) を参照。
 
@@ -171,11 +260,11 @@ MVPではこの一連の体験を最小限で成立させる。
 
 | 技術 | 用途 |
 | :---- | :---- |
+| **Sentry** | エラー監視・パフォーマンス計測。Next.js統合（`@sentry/nextjs`）でサーバー/クライアント両方のエラーを自動キャプチャ |
+| **Axiom** | ログ集約・分析。構造化ログの検索・ダッシュボード可視化 |
 | **Vercel Analytics** | アクセス解析。ページパフォーマンス・Web Vitals計測 |
 | **Vercel Logs** | アプリケーションログ。API Routeの構造化ログ確認 |
 | **Supabase Dashboard Logs** | Auth ログ・DBクエリログ。ログイン試行・RLSポリシー評価の監視 |
-
-MVP段階ではVercel / Supabaseの標準機能で運用。必要に応じてSentry等の外部監視サービスを追加検討。
 
 ---
 
@@ -238,7 +327,7 @@ MVP段階ではVercel / Supabaseの標準機能で運用。必要に応じてSen
 
 | 機能 | 概要 | 根拠 |
 | :---- | :---- | :---- |
-| 既存プロダクトからのログイン | メールアドレスで既存アカウントと紐付け | 「使うだけで」の体験の起点 |
+| ログイン（LINE連携 or マジックリンク） | LINE連携を推奨、マジックリンクも選択可。既存アカウントとはメールアドレスで紐付け | 「使うだけで」の体験の起点。LINE連携はトラッキング情報が維持されやすい |
 | データ連携同意フロー | 同意画面 → 利用規約承認 → data_consent_granted_at記録 | 個人情報保護法対応・信頼の基盤 |
 | プロフィール作成 | 個人情報、スカウトとか各種設定 | 学生情報入力しないと始まらない |
 | プロフィール確認画面 | 基本情報 + AI統合プロフィール + 各プロダクト同期データの閲覧 | 自分のデータが何を見られるか把握できる |
@@ -251,7 +340,7 @@ MVP段階ではVercel / Supabaseの標準機能で運用。必要に応じてSen
 
 | 機能 | 概要 | 根拠 |
 | :---- | :---- | :---- |
-| 企業アカウント登録・ログイン | 企業情報 + 担当者情報の登録、メール認証 | 企業側の入口 |
+| 企業アカウント登録・ログイン | 企業情報 + 担当者情報の登録、マジックリンク認証。owner/adminはMFA（TOTP）必須 | 企業側の入口。パスワードレスでフィッシングリスク排除 |
 | 企業アカウント審査フロー | 登録直後は is_verified=false。運営が審査完了するまで学生データ閲覧・スカウト送信不可。審査完了後にメール通知 | なりすまし防止。[セキュリティ要件書](operations/02-security-requirements.md) 2.2 で定義 |
 | AIマッチング・フィルタリング | 企業の採用条件をもとにAIがマッチ度の高い学生リストを自動生成。フィルター（卒業年度、文理、活動量等）で絞り込み | 「本質的なマッチング」の実現。企業が手動で検索する工数を削減 |
 | 学生プロフィール詳細閲覧 | AI統合プロフィール + 各プロダクトデータ（privacy_settingsに基づく表示制御） | 行動データから学生の本質を見る |
@@ -265,9 +354,10 @@ MVP段階ではVercel / Supabaseの標準機能で運用。必要に応じてSen
 
 | 機能 | 概要 | 根拠 |
 | :---- | :---- | :---- |
-| 4プロダクトからのデータ同期 | synced_* テーブルへのETL/API連携 | 全ての価値の源泉 |
-| AI統合プロフィール生成 | Claude APIで4プロダクトデータを分析 → summary, strengths, skills等を生成 | 「学生の本質を可視化」の実現 |
+| 4プロダクトからのデータ同期 | synced_* テーブルへのETL/API連携 | 全ての価値の源泉。※ UIを先行して統一構築し、データ連携基盤は後続で実装 |
+| AI統合プロフィール生成 | Claude APIで4プロダクトデータを分析 → summary, strengths, skills等を生成 | 「学生の本質を可視化」の実現。※ データ連携基盤の完成後に実装 |
 | RLS + 認証基盤 | 学生/企業の認証、テーブルごとのアクセス制御、MFA（owner/admin必須）、セッション管理 | セキュリティの根幹。詳細は [セキュリティ要件書](operations/02-security-requirements.md) 参照 |
+| 流入経路トラッキング | マジックリンク認証時のアクセス元追跡。初回アクセス時にUTM/referrerをサーバー側DBに匿名セッションIDで保存し、認証コールバック時にユーザーIDと紐付け。有効期限30分・使い捨て | WebView/アプリ内ブラウザでcookieが消える問題を回避。登録導線の分析に必須 |
 | 仮のスカウト送信上限 | 無課金でも上限を設定（例: 月30通） | 無制限だとスパム化のリスク |
 
 ### 10.2 Should（推奨）— あるとMVPの体験が良くなる
