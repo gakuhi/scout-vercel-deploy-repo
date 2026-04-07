@@ -6,29 +6,167 @@
 
 - **DBMS**: PostgreSQL（Supabase）
 - **認証**: Supabase Auth
-- **テーブル数**: 14
+- **テーブル数**: 22（アプリ固有） + Supabase管理テーブル
+
+---
+
+## スキーマ構成
+
+PostgreSQL の「スキーマ」はデータベース内の名前空間（namespace）。Supabase では以下のスキーマが存在する。
+
+| スキーマ | 管理者 | 用途 |
+|---|---|---|
+| `public` | アプリ開発者 | アプリのテーブルを配置。RLS を適用 |
+| `auth` | Supabase Auth | 認証・セッション管理（Supabase が自動作成・管理する組み込みスキーマ） |
+| `storage` | Supabase Storage | ファイルストレージ管理（Supabase が自動作成・管理する組み込みスキーマ） |
+
+**本プロジェクトのテーブルはすべて `public` スキーマに配置する。**
+
+- PostgreSQL のスキーマはネスト（入れ子）できないフラットな構造
+- `public` 内のテーブルはプレフィックスで論理グルーピングする（`student_*`, `company_*`, `scout_*`, `synced_*` など）
+- MVP の規模ではスキーマ分割は不要。チームや権限が明確に分かれる規模になった場合に検討する
+
+---
+
+## Supabase 管理テーブル（auth / storage スキーマ）
+
+Supabase が自動管理するテーブル。直接 CREATE/ALTER しないが、アプリ側から参照・依存する。
+
+### auth.users — 認証ユーザー（重要）
+
+全ユーザー（学生・企業担当者）の認証情報を管理する Supabase Auth のコアテーブル。`students.id` と `company_members.id` はこのテーブルの `id` を FK として参照する。
+
+| カラム | 型 | 本プロジェクトでの用途 |
+|---|---|---|
+| id | UUID | PK。students / company_members の id と一致 |
+| email | TEXT | ログイン用メールアドレス |
+| raw_app_meta_data | JSONB | `role` フィールドにユーザー種別（`student` / `company_owner` / `company_admin` / `company_member`）を格納。RLS ポリシーで `auth.jwt()->>'role'` として参照 |
+| raw_user_meta_data | JSONB | サインアップ時のメタデータ（氏名等）。LINE連携時は LINE プロフィール情報が自動格納される |
+| created_at | TIMESTAMPTZ | アカウント作成日時 |
+| updated_at | TIMESTAMPTZ | |
+| last_sign_in_at | TIMESTAMPTZ | 最終ログイン日時 |
+| banned_until | TIMESTAMPTZ | アカウント停止期限（不正利用対応） |
+
+※ パスワードハッシュ（encrypted_password）等のセキュリティカラムは Supabase Auth が内部管理。アプリ層からは参照しない。
+
+### auth.identities — OAuth プロバイダー紐付け（重要）
+
+LINE連携・マジックリンク等の認証プロバイダー情報。1ユーザーに複数の identity を持てる（LINE + メール等）。
+
+| カラム | 型 | 本プロジェクトでの用途 |
+|---|---|---|
+| id | TEXT | プロバイダー側のユーザーID |
+| user_id | UUID | FK → auth.users(id) |
+| provider | TEXT | `line` / `email` 等 |
+| identity_data | JSONB | LINE連携時: `sub`（LINE user_id）、`name`、`picture` 等を格納。LINE通知送信時に `identity_data->>'sub'` で LINE user_id を取得 |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+※ LINE通知送信時はサーバーサイド（Service Role Key）で `auth.identities` から `provider = 'line'` の `identity_data->>'sub'` を取得して LINE Messaging API に渡す。
+
+### auth.sessions — セッション管理
+
+アクティブセッションを管理。セキュリティ要件書 1.2 のセッション設定（タイムボックス7日、非アクティブ24時間）に従う。
+
+### auth.mfa_factors / auth.mfa_challenges — MFA 管理
+
+企業 owner/admin に必須の TOTP MFA の登録・認証チャレンジ情報。
+
+### auth.flow_state — 認証フロー状態
+
+マジックリンク・OAuth 等の認証フロー中間状態を保持。
+
+### storage.objects / storage.buckets — ファイルストレージ
+
+| バケット | 用途 | アクセス |
+|---|---|---|
+| `avatars` | 学生のプロフィール画像 | Private + 署名付きURL |
+| `company-logos` | 企業ロゴ画像 | Public（審査済み企業のみアップロード可） |
+
+※ バケット設計は開発時に確定。RLS でアップロード権限を制御。
 
 ---
 
 ## ER図（概要）
 
+テーブルを機能グループごとに色分けして表示。リレーションの詳細は「ER図（詳細）」を参照。
+
 ```mermaid
-erDiagram
-    students ||--o{ student_product_links : "links"
-    students ||--o{ synced_es_entries : "has"
-    students ||--o{ synced_researches : "has"
-    students ||--o{ synced_interview_sessions : "has"
-    students ||--o{ synced_activities : "has"
-    students ||--o| student_integrated_profiles : "has"
-    students ||--o| privacy_settings : "configures"
-    students ||--o{ scouts : "receives"
+flowchart TB
+    subgraph auth["auth スキーマ（Supabase 管理）"]
+        auth.users
+        auth.identities
+        auth.sessions
+    end
 
-    companies ||--o{ company_members : "has"
-    companies ||--o{ scouts : "sends"
-    companies ||--o| company_plans : "subscribes"
+    subgraph student["学生"]
+        students
+        privacy_settings
+    end
 
-    company_members ||--o{ scouts : "sends"
-    company_members ||--o{ saved_searches : "saves"
+    subgraph sync["データ連携（ETL）"]
+        student_product_links
+        synced_es_entries
+        synced_researches
+        synced_interview_sessions
+        synced_activities
+        student_integrated_profiles
+    end
+
+    subgraph company["企業"]
+        companies
+        company_members
+        job_postings
+        company_plans
+        saved_searches
+    end
+
+    subgraph scout_chat["スカウト・チャット"]
+        scouts
+        chat_messages
+    end
+
+    subgraph notify["通知"]
+        notifications
+        student_notification_settings
+        company_notification_settings
+    end
+
+    subgraph event_g["イベント"]
+        events
+        event_registrations
+    end
+
+    subgraph system["システム"]
+        anonymous_visits
+        audit_logs
+    end
+
+    %% グループ間の主要リレーション
+    auth.users -- "FK" --> students
+    auth.users -- "FK" --> company_members
+    students -- "ETL同期" --> sync
+    students -- "受信" --> scouts
+    companies -- "送信" --> scouts
+    scouts -- "スレッド" --> chat_messages
+    students -- "申込" --> event_registrations
+    events -- "登録" --> event_registrations
+    companies -- "開催" --> events
+    job_postings -. "任意紐付" .-> scouts
+    students -- "通知先" --> notifications
+    students -- "設定" --> student_notification_settings
+    company_members -- "通知先" --> notifications
+    company_members -- "設定" --> company_notification_settings
+
+    %% グループ色
+    style auth fill:#e0e7ff,stroke:#6366f1,color:#3730a3
+    style student fill:#dbeafe,stroke:#3b82f6,color:#1e40af
+    style sync fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style company fill:#d1fae5,stroke:#10b981,color:#065f46
+    style scout_chat fill:#fee2e2,stroke:#ef4444,color:#991b1b
+    style notify fill:#ffedd5,stroke:#f97316,color:#9a3412
+    style event_g fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
+    style system fill:#f3f4f6,stroke:#6b7280,color:#374151
 ```
 
 ## ER図（詳細）
@@ -185,11 +323,136 @@ erDiagram
         uuid student_id FK
         text subject
         text message
+        uuid job_posting_id FK "NULLable"
         scout_status status
         timestamptz sent_at
         timestamptz read_at
         timestamptz responded_at
         timestamptz expires_at
+    }
+
+    %% ===== 求人 =====
+    job_postings {
+        uuid id PK
+        uuid company_id FK
+        uuid created_by FK
+        text title
+        text description
+        text job_category
+        text work_location
+        text employment_type
+        text salary_range
+        text requirements
+        text benefits
+        int target_graduation_year
+        boolean is_published
+        timestamptz published_at
+        timestamptz deleted_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    %% ===== チャット =====
+    chat_messages {
+        uuid id PK
+        uuid scout_id FK
+        uuid sender_id "auth.users(id)"
+        chat_sender_role sender_role
+        text content
+        timestamptz read_at
+        timestamptz created_at
+    }
+
+    %% ===== 通知 =====
+    notifications {
+        uuid id PK
+        uuid user_id "auth.users(id)"
+        notification_type type
+        text title
+        text body
+        text reference_type
+        uuid reference_id
+        boolean is_read
+        timestamptz read_at
+        timestamptz line_sent_at
+        timestamptz created_at
+    }
+
+    student_notification_settings {
+        uuid id PK
+        uuid student_id FK "UNIQUE"
+        boolean scout_received
+        boolean chat_message
+        boolean event_reminder
+        boolean system_announcement
+        boolean line_enabled
+        boolean in_app_enabled
+        timestamptz updated_at
+    }
+
+    company_notification_settings {
+        uuid id PK
+        uuid company_member_id FK "UNIQUE"
+        boolean scout_accepted
+        boolean scout_declined
+        boolean chat_message
+        boolean system_announcement
+        boolean line_enabled
+        boolean in_app_enabled
+        timestamptz updated_at
+    }
+
+    %% ===== イベント =====
+    events {
+        uuid id PK
+        uuid company_id FK "NULLable"
+        uuid created_by FK "NULLable"
+        event_organizer_type organizer_type
+        text title
+        text description
+        text event_type
+        event_format format
+        text location
+        text online_url
+        timestamptz starts_at
+        timestamptz ends_at
+        int capacity
+        timestamptz application_deadline
+        int target_graduation_year
+        boolean is_published
+        timestamptz published_at
+        timestamptz deleted_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    event_registrations {
+        uuid id PK
+        uuid event_id FK
+        uuid student_id FK
+        event_registration_status status
+        timestamptz applied_at
+        timestamptz cancelled_at
+        timestamptz created_at
+    }
+
+    %% ===== トラッキング =====
+    anonymous_visits {
+        uuid id PK
+        text session_token "UNIQUE"
+        text utm_source
+        text utm_medium
+        text utm_campaign
+        text utm_term
+        text utm_content
+        text referrer
+        text landing_page
+        text user_agent
+        text ip_address
+        uuid user_id
+        timestamptz linked_at
+        timestamptz expires_at
+        timestamptz created_at
     }
 
     %% ===== 監査 =====
@@ -238,13 +501,26 @@ erDiagram
     students ||--o| student_integrated_profiles : "has"
     students ||--o| privacy_settings : "configures"
     students ||--o{ scouts : "receives"
+    students ||--o| student_notification_settings : "configures"
+    students ||--o{ notifications : "receives"
+    students ||--o{ event_registrations : "registers"
 
     companies ||--o{ company_members : "has"
     companies ||--o{ scouts : "sends"
     companies ||--o| company_plans : "subscribes"
+    companies ||--o{ job_postings : "has"
+    companies ||--o{ events : "hosts"
 
     company_members ||--o{ scouts : "sends"
     company_members ||--o{ saved_searches : "saves"
+    company_members ||--o{ job_postings : "creates"
+    company_members ||--o| company_notification_settings : "configures"
+    company_members ||--o{ notifications : "receives"
+    company_members ||--o{ events : "creates"
+
+    job_postings ||--o{ scouts : "referenced_by"
+    scouts ||--o{ chat_messages : "has_thread"
+    events ||--o{ event_registrations : "has"
 ```
 
 ---
@@ -258,6 +534,11 @@ erDiagram
 | `product_source` | `smart_es`, `company_ai`, `interview_ai`, `syukatsu` | 連携元プロダクト |
 | `scout_status` | `sent`, `read`, `accepted`, `declined`, `expired` | スカウトの状態遷移 |
 | `academic_type` | `liberal_arts`, `science`, `other` | 文理区分 |
+| `chat_sender_role` | `student`, `company_member` | チャットメッセージの送信者ロール |
+| `notification_type` | `scout_received`, `scout_accepted`, `scout_declined`, `chat_new_message`, `event_reminder`, `system_announcement` | 通知種別 |
+| `event_organizer_type` | `company`, `platform` | イベント主催者種別 |
+| `event_format` | `online`, `offline`, `hybrid` | イベント開催形式 |
+| `event_registration_status` | `applied`, `confirmed`, `cancelled`, `attended` | イベント参加ステータス |
 
 ---
 
@@ -442,6 +723,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | company_id | UUID | NOT NULL, FK → companies(id) | 送信元企業 |
 | sender_id | UUID | NOT NULL, FK → company_members(id) | 送信者 |
 | student_id | UUID | NOT NULL, FK → students(id) | 送信先学生 |
+| job_posting_id | UUID | NULLable, FK → job_postings(id) | 紐付く求人（任意） |
 | subject | TEXT | NOT NULL | 件名 |
 | message | TEXT | NOT NULL | 本文 |
 | status | scout_status | DEFAULT 'sent' | 状態 |
@@ -493,6 +775,162 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | ip_address | TEXT | | リクエスト元IPアドレス |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 
+### 15. job_postings — 求人情報
+
+企業が作成する求人。スカウト送信時に紐付けることで、学生に具体的なポジション情報を提示する。
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| company_id | UUID | NOT NULL, FK → companies(id) | 求人を持つ企業 |
+| created_by | UUID | NOT NULL, FK → company_members(id) | 作成した担当者 |
+| title | TEXT | NOT NULL | 求人タイトル（例: 「26卒 エンジニア職」） |
+| description | TEXT | | 募集要項・仕事内容 |
+| job_category | TEXT | | 職種（例: エンジニア、営業、企画 等） |
+| work_location | TEXT | | 勤務地 |
+| employment_type | TEXT | | 雇用形態（正社員、契約社員 等） |
+| salary_range | TEXT | | 給与帯（例: "300万-500万"） |
+| requirements | TEXT | | 応募条件・求めるスキル |
+| benefits | TEXT | | 福利厚生 |
+| target_graduation_year | INT | | 対象卒業年度 |
+| is_published | BOOLEAN | DEFAULT false | 公開フラグ |
+| published_at | TIMESTAMPTZ | | 公開日時 |
+| deleted_at | TIMESTAMPTZ | | 論理削除日時 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | |
+
+### 16. chat_messages — チャットメッセージ
+
+スカウト承諾後の学生-企業間メッセージ。スカウト（scouts）単位のスレッド形式。Supabase Realtime で `scout_id` フィルタして配信。
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| scout_id | UUID | NOT NULL, FK → scouts(id) | 紐付くスカウト（＝スレッド単位） |
+| sender_id | UUID | NOT NULL | 送信者のユーザーID（auth.users(id)）。学生または企業担当者 |
+| sender_role | chat_sender_role | NOT NULL | `student` / `company_member` |
+| content | TEXT | NOT NULL | メッセージ本文 |
+| read_at | TIMESTAMPTZ | | 相手に既読された日時 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | 送信日時 |
+
+※ スカウトの `status` が `accepted` のときのみメッセージ送信を許可（RLS + アプリ層で二重制御）。
+
+### 17. notifications — 通知
+
+イベント駆動の通知レコード。LINE通知とアプリ内通知の両方で参照する。
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| user_id | UUID | NOT NULL | 通知先ユーザー（auth.users(id)） |
+| type | notification_type | NOT NULL | 通知種別 |
+| title | TEXT | NOT NULL | 通知タイトル |
+| body | TEXT | | 通知本文 |
+| reference_type | TEXT | | 関連エンティティのテーブル名（例: `scouts`, `chat_messages`） |
+| reference_id | UUID | | 関連エンティティのID |
+| is_read | BOOLEAN | DEFAULT false | アプリ内既読フラグ |
+| read_at | TIMESTAMPTZ | | アプリ内既読日時 |
+| line_sent_at | TIMESTAMPTZ | | LINE通知送信日時（NULL = 未送信 or LINE未連携） |
+| created_at | TIMESTAMPTZ | DEFAULT now() | |
+
+### 18. student_notification_settings — 学生通知設定
+
+学生ごとの通知種別ON/OFF設定。1学生1レコード。
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| student_id | UUID | NOT NULL, UNIQUE, FK → students(id) | |
+| scout_received | BOOLEAN | DEFAULT true | スカウト受信通知 |
+| chat_message | BOOLEAN | DEFAULT true | チャット新着通知 |
+| event_reminder | BOOLEAN | DEFAULT true | イベントリマインド通知 |
+| system_announcement | BOOLEAN | DEFAULT true | システムからのお知らせ |
+| line_enabled | BOOLEAN | DEFAULT true | LINE通知の一括ON/OFF |
+| in_app_enabled | BOOLEAN | DEFAULT true | アプリ内通知の一括ON/OFF |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | |
+
+### 19. company_notification_settings — 企業担当者通知設定
+
+企業担当者ごとの通知種別ON/OFF設定。1担当者1レコード。
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| company_member_id | UUID | NOT NULL, UNIQUE, FK → company_members(id) | |
+| scout_accepted | BOOLEAN | DEFAULT true | スカウト承諾通知 |
+| scout_declined | BOOLEAN | DEFAULT true | スカウト辞退通知 |
+| chat_message | BOOLEAN | DEFAULT true | チャット新着通知 |
+| system_announcement | BOOLEAN | DEFAULT true | システムからのお知らせ |
+| line_enabled | BOOLEAN | DEFAULT true | LINE通知の一括ON/OFF |
+| in_app_enabled | BOOLEAN | DEFAULT true | アプリ内通知の一括ON/OFF |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | |
+
+### 20. events — イベント
+
+企業主催または運営主催のイベント（説明会・セミナー・インターン等）。`company_id` が NULL の場合はプラットフォーム運営主催。
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| company_id | UUID | NULLable, FK → companies(id) | 主催企業（NULLの場合は運営主催） |
+| created_by | UUID | NULLable, FK → company_members(id) | 作成した企業担当者（運営主催の場合はNULL） |
+| organizer_type | event_organizer_type | NOT NULL | `company` / `platform` |
+| title | TEXT | NOT NULL | イベントタイトル |
+| description | TEXT | | イベント詳細・説明文 |
+| event_type | TEXT | | イベント種別（例: 説明会、セミナー、インターン、合同企業説明会 等） |
+| format | event_format | NOT NULL, DEFAULT 'offline' | 開催形式（`online` / `offline` / `hybrid`） |
+| location | TEXT | | 会場名・住所（オフライン/ハイブリッドの場合） |
+| online_url | TEXT | | オンラインURL（オンライン/ハイブリッドの場合） |
+| starts_at | TIMESTAMPTZ | NOT NULL | 開始日時 |
+| ends_at | TIMESTAMPTZ | | 終了日時 |
+| capacity | INT | | 定員（NULLの場合は制限なし） |
+| application_deadline | TIMESTAMPTZ | | 申し込み期限 |
+| target_graduation_year | INT | | 対象卒業年度 |
+| is_published | BOOLEAN | DEFAULT false | 公開フラグ |
+| published_at | TIMESTAMPTZ | | 公開日時 |
+| deleted_at | TIMESTAMPTZ | | 論理削除日時 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | |
+
+### 21. event_registrations — イベント参加申し込み
+
+学生のイベント参加申し込みを管理する。1イベント1学生1レコード。
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| event_id | UUID | NOT NULL, FK → events(id) | 対象イベント |
+| student_id | UUID | NOT NULL, FK → students(id) | 申し込み学生 |
+| status | event_registration_status | DEFAULT 'applied' | 参加ステータス |
+| applied_at | TIMESTAMPTZ | DEFAULT now() | 申し込み日時 |
+| cancelled_at | TIMESTAMPTZ | | キャンセル日時 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | |
+| | | UNIQUE(event_id, student_id) | 重複申し込み防止 |
+
+### 22. anonymous_visits — 匿名流入経路トラッキング
+
+マジックリンク認証時のアクセス元追跡。初回アクセス時にサーバー側で匿名セッションIDとともに保存し、認証コールバック時にユーザーIDと紐付ける。全操作は Service Role Key 経由。
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| session_token | TEXT | NOT NULL, UNIQUE | 匿名セッションID（サーバー側で生成） |
+| utm_source | TEXT | | UTM source パラメータ |
+| utm_medium | TEXT | | UTM medium パラメータ |
+| utm_campaign | TEXT | | UTM campaign パラメータ |
+| utm_term | TEXT | | UTM term パラメータ |
+| utm_content | TEXT | | UTM content パラメータ |
+| referrer | TEXT | | HTTP Referer ヘッダーの値 |
+| landing_page | TEXT | | 最初にアクセスしたページのパス |
+| user_agent | TEXT | | ブラウザのUser-Agent |
+| ip_address | TEXT | | アクセス元IP |
+| user_id | UUID | | 認証コールバック時に紐付けするユーザーID |
+| linked_at | TIMESTAMPTZ | | ユーザーIDとの紐付け日時 |
+| expires_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() + interval '30 minutes' | 有効期限 |
+| created_at | TIMESTAMPTZ | DEFAULT now() | |
+
+※ 期限切れ未紐付けレコードは pg_cron バッチで定期削除。
+
 ---
 
 ## インデックス
@@ -515,6 +953,23 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | scouts | (company_id, sent_at DESC) | 企業のスカウト履歴 |
 | student_product_links | (external_user_id, product) | 外部ID逆引き |
 | companies | (is_verified) WHERE is_verified = true | 審査済み企業の絞り込み |
+| scouts | (job_posting_id) | 求人別スカウト一覧 |
+| job_postings | (company_id) | 企業別求人一覧 |
+| job_postings | (is_published) WHERE is_published = true | 公開求人絞り込み |
+| job_postings | (target_graduation_year) | 卒業年度フィルター |
+| chat_messages | (scout_id, created_at ASC) | スレッド内時系列取得 |
+| chat_messages | (scout_id, read_at) WHERE read_at IS NULL | 未読メッセージ取得 |
+| notifications | (user_id, created_at DESC) | ユーザー別通知一覧 |
+| notifications | (user_id, is_read) WHERE is_read = false | 未読通知取得 |
+| events | (company_id) | 企業別イベント一覧 |
+| events | (is_published) WHERE is_published = true | 公開イベント絞り込み |
+| events | (starts_at) | 開催日時順ソート |
+| events | (target_graduation_year) | 卒業年度フィルター |
+| events | (organizer_type) | 主催者種別フィルター |
+| event_registrations | (event_id, student_id) | ユニーク制約 + 参加者一覧 |
+| event_registrations | (student_id) | 学生別参加イベント一覧 |
+| anonymous_visits | (expires_at) WHERE user_id IS NULL | 期限切れ未紐付けレコードのパージ |
+| anonymous_visits | (user_id) WHERE user_id IS NOT NULL | ユーザー別流入経路参照 |
 | audit_logs | (actor_id) | 操作者別ログ検索 |
 | audit_logs | (target_type, target_id) | 対象別ログ検索 |
 | audit_logs | (created_at DESC) | 時系列ログ閲覧 |
@@ -533,6 +988,12 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | student_integrated_profiles | 自分のレコードのみ | — (APIのみ) | — | — |
 | scouts | 自分宛のみ | — | status, read_at, responded_at のみ | — |
 | companies | 全企業閲覧可 | — | — | — |
+| job_postings | is_published = true のみ | — | — | — |
+| chat_messages | 自分が当事者のスカウトのみ | スカウト当事者 かつ status = accepted | — | — |
+| notifications | 自分宛のみ | — (Service Role のみ) | is_read, read_at のみ | — |
+| student_notification_settings | 自分のレコードのみ | 自分のstudent_idで作成 | 自分のレコードのみ | — |
+| events | 公開イベントのみ | — | — | — |
+| event_registrations | 自分の申し込みのみ | 公開イベントに申し込み | status（キャンセル）のみ | — |
 
 ### 企業担当者（company_owner / company_admin / company_member ロール）
 
@@ -547,6 +1008,19 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | companies | 全企業閲覧可 | — | owner/admin のみ自社を更新 | — |
 | company_members | 自社メンバーのみ | owner のみ追加 | owner のみ更新 | owner のみ削除 |
 | saved_searches | 自分のもののみ | 作成可 | 自分のもののみ | 自分のもののみ |
+| job_postings | 自社の全求人 | 自社メンバー（is_verified = true） | 自社の求人のみ | —（論理削除） |
+| chat_messages | 自社が当事者のスカウトのみ | スカウト当事者 かつ status = accepted | read_at のみ相手側が更新可 | — |
+| notifications | 自分宛のみ | — (Service Role のみ) | is_read, read_at のみ | — |
+| company_notification_settings | 自分のレコードのみ | 自分のcompany_member_idで作成 | 自分のレコードのみ | — |
+| events | 自社の全イベント + 公開中の運営イベント | 自社メンバー（is_verified = true） | 自社のイベントのみ | —（論理削除） |
+| event_registrations | 自社イベントの申し込み一覧 | — | status（確認・出席記録）のみ | — |
+
+### Service Role のみ（クライアントアクセス不可）
+
+| テーブル | ポリシー | 説明 |
+|---|---|---|
+| anonymous_visits | 全操作 USING(false) | 流入経路トラッキング。全操作を Service Role Key 経由で実行 |
+| notifications（INSERT） | クライアントからの INSERT 不可 | 通知作成はサーバーサイドのみ |
 
 ---
 
@@ -560,11 +1034,11 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
        │                  │                  │                  │
        └──────────────────┴──────────────────┴──────────────────┘
                                     │
-                              ETL / API 連携
+                         ETL（定期バッチ同期）
                                     │
                                     ▼
                      ┌──────────────────────────┐
-                     │   student_product_links   │ ← メールアドレスで自動マッチング
+                     │   student_product_links   │ ← メールアドレスで紐付け（学生の能動的選択）
                      └────────────┬─────────────┘
                                   │
                  ┌────────────────┼────────────────┐
@@ -582,10 +1056,13 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
                      └──────────────────────────┘
 ```
 
-1. 学生がスカウトサービスに初回ログイン → Supabase Auth アカウント作成
-2. メールアドレスで既存プロダクトのアカウントを自動検索
-3. 学生がデータ連携に同意 → `data_consent_granted_at` を記録
-4. ETLジョブが各プロダクトからデータを同期 → `synced_*` テーブルに格納
-5. Claude API が統合プロフィールを生成 → `student_integrated_profiles` に保存
-6. 学生が `privacy_settings` で公開範囲を設定
-7. `is_profile_public = true` にすると企業から検索可能に
+**連携方式: ETL（定期バッチ）** — リアルタイム性が必要になった場合にAPI連携を検討
+
+1. 学生がスカウトサービスに初回ログイン → Supabase Auth アカウント作成（メール所有権証明済み）
+2. 学生が「データ連携画面」で連携したいプロダクトを選択
+3. 連携候補はメール検証済みアカウントのみ表示。データプレビューで内容を確認後、学生が承認 → `data_consent_granted_at` を記録
+4. `student_product_links` に紐付けを作成
+5. ETLジョブ（Service Role Key）が連携元DBからデータを抽出・変換 → `synced_*` テーブルに格納
+6. Claude API が統合プロフィールを生成 → `student_integrated_profiles` に保存
+7. 学生が `privacy_settings` で公開範囲を設定
+8. `is_profile_public = true` にすると企業から検索可能に
