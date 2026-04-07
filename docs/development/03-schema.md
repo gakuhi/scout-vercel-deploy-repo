@@ -6,7 +6,7 @@
 
 - **DBMS**: PostgreSQL（Supabase）
 - **認証**: Supabase Auth
-- **テーブル数**: 22（アプリ固有） + Supabase管理テーブル
+- **テーブル数**: 21（アプリ固有） + Supabase管理テーブル
 
 ---
 
@@ -101,16 +101,15 @@ flowchart TB
 
     subgraph student["学生"]
         students
-        privacy_settings
+        student_product_links
+        student_integrated_profiles
     end
 
     subgraph sync["データ連携（ETL）"]
-        student_product_links
         synced_es_entries
         synced_researches
         synced_interview_sessions
         synced_activities
-        student_integrated_profiles
     end
 
     subgraph company["企業"]
@@ -152,7 +151,7 @@ flowchart TB
     students -- "申込" --> event_registrations
     events -- "登録" --> event_registrations
     companies -- "開催" --> events
-    job_postings -. "任意紐付" .-> scouts
+    job_postings -- "紐付" --> scouts
     students -- "通知先" --> notifications
     students -- "設定" --> student_notification_settings
     company_members -- "通知先" --> notifications
@@ -303,19 +302,6 @@ erDiagram
         text model_version
     }
 
-    privacy_settings {
-        uuid id PK
-        uuid student_id FK "UNIQUE"
-        boolean show_real_name
-        boolean show_university
-        boolean show_es_entries
-        boolean show_researches
-        boolean show_interview_data
-        boolean show_activities
-        boolean show_contact_info
-        timestamptz updated_at
-    }
-
     scouts {
         uuid id PK
         uuid company_id FK
@@ -323,7 +309,7 @@ erDiagram
         uuid student_id FK
         text subject
         text message
-        uuid job_posting_id FK "NULLable"
+        uuid job_posting_id FK "NOT NULL"
         scout_status status
         timestamptz sent_at
         timestamptz read_at
@@ -499,7 +485,7 @@ erDiagram
     students ||--o{ synced_interview_sessions : "has"
     students ||--o{ synced_activities : "has"
     students ||--o| student_integrated_profiles : "has"
-    students ||--o| privacy_settings : "configures"
+
     students ||--o{ scouts : "receives"
     students ||--o| student_notification_settings : "configures"
     students ||--o{ notifications : "receives"
@@ -627,7 +613,7 @@ erDiagram
 | linked_at | TIMESTAMPTZ | DEFAULT now() | 紐付け日時 |
 | | | UNIQUE(student_id, product) | 1プロダクト1リンク |
 
-### 5. synced_es_entries — ES データ（スマートES）
+### 🔵 5. synced_es_entries — ES データ（スマートES）
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -642,7 +628,7 @@ erDiagram
 | original_created_at | TIMESTAMPTZ | | 元データの作成日時 |
 | synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
 
-### 6. synced_researches — 企業分析データ（企業分析AI）
+### 🔵 6. synced_researches — 企業分析データ（企業分析AI）
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -655,7 +641,7 @@ erDiagram
 | original_created_at | TIMESTAMPTZ | | 元データの作成日時 |
 | synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
 
-### 7. synced_interview_sessions — 面接練習データ（面接練習AI）
+### 🔵 7. synced_interview_sessions — 面接練習データ（面接練習AI）
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -668,7 +654,7 @@ erDiagram
 | original_created_at | TIMESTAMPTZ | | 元データの作成日時 |
 | synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
 
-### 8. synced_activities — 就活活動データ（すごい就活）
+### 🔵 8. synced_activities — 就活活動データ（すごい就活）
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -682,7 +668,7 @@ erDiagram
 | original_created_at | TIMESTAMPTZ | | 元データの作成日時 |
 | synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
 
-### 9. student_integrated_profiles — AI統合プロフィール
+### 🔵 9. student_integrated_profiles — AI統合プロフィール
 
 Claude APIで4プロダクトのデータを分析し、統合的な学生プロフィールを生成・保存する。
 
@@ -694,28 +680,12 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | strengths | JSONB | | 強み・特性 |
 | interests | JSONB | | 志望業界・企業群 |
 | skills | JSONB | | スキル評価 |
+| preferred_work_locations | JSONB | | 志望勤務先（例: ["東京", "大阪"]） |
 | activity_level | TEXT | | 就活活動量（active/moderate/low） |
 | generated_at | TIMESTAMPTZ | DEFAULT now() | 生成日時 |
 | model_version | TEXT | | 使用AIモデル |
 
-### 10. privacy_settings — プライバシー設定
-
-学生が企業に公開するデータの範囲を制御する。
-
-| カラム | 型 | 制約 | 説明 |
-|---|---|---|---|
-| id | UUID | PK, DEFAULT gen_random_uuid() | |
-| student_id | UUID | NOT NULL, UNIQUE, FK → students(id) | |
-| show_real_name | BOOLEAN | DEFAULT false | 実名を表示 |
-| show_university | BOOLEAN | DEFAULT false | 大学名を表示 |
-| show_es_entries | BOOLEAN | DEFAULT false | ES情報を表示 |
-| show_researches | BOOLEAN | DEFAULT false | 企業分析情報を表示 |
-| show_interview_data | BOOLEAN | DEFAULT false | 面接練習情報を表示 |
-| show_activities | BOOLEAN | DEFAULT false | 就活活動情報を表示 |
-| show_contact_info | BOOLEAN | DEFAULT false | 連絡先を表示 |
-| updated_at | TIMESTAMPTZ | DEFAULT now() | |
-
-### 11. scouts — スカウトメッセージ
+### 10. scouts — スカウトメッセージ
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -723,7 +693,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | company_id | UUID | NOT NULL, FK → companies(id) | 送信元企業 |
 | sender_id | UUID | NOT NULL, FK → company_members(id) | 送信者 |
 | student_id | UUID | NOT NULL, FK → students(id) | 送信先学生 |
-| job_posting_id | UUID | NULLable, FK → job_postings(id) | 紐付く求人（任意） |
+| job_posting_id | UUID | NOT NULL, FK → job_postings(id) | 紐付く求人 |
 | subject | TEXT | NOT NULL | 件名 |
 | message | TEXT | NOT NULL | 本文 |
 | status | scout_status | DEFAULT 'sent' | 状態 |
@@ -732,7 +702,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | responded_at | TIMESTAMPTZ | | 応答日時 |
 | expires_at | TIMESTAMPTZ | | 有効期限 |
 
-### 12. saved_searches — 検索条件保存（MVP後）
+### 🔵 11. saved_searches — 検索条件保存（MVP後）
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -743,7 +713,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 13. company_plans — 課金プラン（MVP後）
+### 🔵 12. company_plans — 課金プラン（MVP後）
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -759,7 +729,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 14. audit_logs — 監査ログ
+### 13. audit_logs — 監査ログ
 
 セキュリティ上重要な操作を記録する。`internal` スキーマに配置し、クライアントからのRPCアクセスを防ぐ。
 
@@ -775,7 +745,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | ip_address | TEXT | | リクエスト元IPアドレス |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 15. job_postings — 求人情報
+### 14. job_postings — 求人情報
 
 企業が作成する求人。スカウト送信時に紐付けることで、学生に具体的なポジション情報を提示する。
 
@@ -799,9 +769,11 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 16. chat_messages — チャットメッセージ
+### 15. chat_messages — チャットメッセージ
 
-スカウト承諾後の学生-企業間メッセージ。スカウト（scouts）単位のスレッド形式。Supabase Realtime で `scout_id` フィルタして配信。
+スカウト承諾後の学生-企業間メッセージ。スカウト（scouts）単位のスレッド形式。
+
+**リアルタイム配信**: Supabase Realtime（PostgreSQL の logical replication ベースの WebSocket 配信機能）を使用。`scout_id` でチャンネルをフィルタし、該当スカウトのスレッド参加者（学生・企業担当者）にのみ INSERT イベントを即時配信する。
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -815,7 +787,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 
 ※ スカウトの `status` が `accepted` のときのみメッセージ送信を許可（RLS + アプリ層で二重制御）。
 
-### 17. notifications — 通知
+### 16. notifications — 通知
 
 イベント駆動の通知レコード。LINE通知とアプリ内通知の両方で参照する。
 
@@ -833,7 +805,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | line_sent_at | TIMESTAMPTZ | | LINE通知送信日時（NULL = 未送信 or LINE未連携） |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 18. student_notification_settings — 学生通知設定
+### 17. student_notification_settings — 学生通知設定
 
 学生ごとの通知種別ON/OFF設定。1学生1レコード。
 
@@ -849,7 +821,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | in_app_enabled | BOOLEAN | DEFAULT true | アプリ内通知の一括ON/OFF |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 19. company_notification_settings — 企業担当者通知設定
+### 18. company_notification_settings — 企業担当者通知設定
 
 企業担当者ごとの通知種別ON/OFF設定。1担当者1レコード。
 
@@ -865,7 +837,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | in_app_enabled | BOOLEAN | DEFAULT true | アプリ内通知の一括ON/OFF |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 20. events — イベント
+### 19. events — イベント
 
 企業主催または運営主催のイベント（説明会・セミナー・インターン等）。`company_id` が NULL の場合はプラットフォーム運営主催。
 
@@ -874,7 +846,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | id | UUID | PK, DEFAULT gen_random_uuid() | |
 | company_id | UUID | NULLable, FK → companies(id) | 主催企業（NULLの場合は運営主催） |
 | created_by | UUID | NULLable, FK → company_members(id) | 作成した企業担当者（運営主催の場合はNULL） |
-| organizer_type | event_organizer_type | NOT NULL | `company` / `platform` |
+| organizer_type | event_organizer_type | NOT NULL | `company` / `platform`。`company_id` の NULL 判定でも判別可能だが、RLS やクエリで明示的にフィルタできるよう専用カラムとして持つ |
 | title | TEXT | NOT NULL | イベントタイトル |
 | description | TEXT | | イベント詳細・説明文 |
 | event_type | TEXT | | イベント種別（例: 説明会、セミナー、インターン、合同企業説明会 等） |
@@ -892,7 +864,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 21. event_registrations — イベント参加申し込み
+### 20. event_registrations — イベント参加申し込み
 
 学生のイベント参加申し込みを管理する。1イベント1学生1レコード。
 
@@ -907,7 +879,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | | | UNIQUE(event_id, student_id) | 重複申し込み防止 |
 
-### 22. anonymous_visits — 匿名流入経路トラッキング
+### 21. anonymous_visits — 匿名流入経路トラッキング
 
 マジックリンク認証時のアクセス元追跡。初回アクセス時にサーバー側で匿名セッションIDとともに保存し、認証コールバック時にユーザーIDと紐付ける。全操作は Service Role Key 経由。
 
@@ -976,14 +948,71 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 
 ---
 
+## View 定義
+
+**View（ビュー）とは:** テーブルに対する SELECT クエリに名前をつけて保存したもの。実データは持たず、参照するたびに元テーブルから最新データを取得する仮想テーブル。用途は主に2つ:
+
+- **カラムの公開制限** — テーブルの一部カラムだけを見せたいとき（例: 企業に学生の実名・連絡先を隠す）
+- **JOIN の簡略化** — 複数テーブルの結合結果をまとめておき、毎回同じ JOIN を書かずに済むようにする
+
+RLS は行単位のアクセス制御のみ。カラム単位の制限や頻出 JOIN の簡略化には View を使う。
+
+### public_students — 学生公開プロフィール
+
+企業担当者が閲覧できる学生情報を制限するビュー。個人を特定できる情報（実名・連絡先・住所詳細）を除外する。
+
+| カラム | 元テーブル | 説明 |
+|---|---|---|
+| id | students.id | |
+| university | students.university | 大学名 |
+| faculty | students.faculty | 学部 |
+| department | students.department | 学科 |
+| academic_type | students.academic_type | 文理区分 |
+| graduation_year | students.graduation_year | 卒業年度 |
+| prefecture | students.prefecture | 都道府県（市区町村以下は非公開） |
+| profile_image_url | students.profile_image_url | プロフィール画像 |
+| bio | students.bio | 自己紹介文 |
+
+**抽出条件:** `is_profile_public = true` AND `deleted_at IS NULL`
+
+※ 企業担当者の RLS は `students` テーブルではなくこの View に対して設定する。スカウト承諾後に実名・連絡先を開示するフローは別途検討。
+
+### searchable_students — 学生検索用ビュー
+
+企業担当者が学生を検索する際に使用する。`students` と `student_integrated_profiles` を JOIN し、検索・フィルタに必要な情報をまとめる。
+
+| カラム | 元テーブル | 説明 |
+|---|---|---|
+| id | students.id | |
+| university | students.university | 大学名 |
+| faculty | students.faculty | 学部 |
+| academic_type | students.academic_type | 文理区分 |
+| graduation_year | students.graduation_year | 卒業年度 |
+| prefecture | students.prefecture | 都道府県 |
+| profile_image_url | students.profile_image_url | プロフィール画像 |
+| bio | students.bio | 自己紹介文 |
+| summary | student_integrated_profiles.summary | AIによる人物要約 |
+| strengths | student_integrated_profiles.strengths | 強み・特性 |
+| interests | student_integrated_profiles.interests | 志望業界・企業群 |
+| skills | student_integrated_profiles.skills | スキル評価 |
+| preferred_work_locations | student_integrated_profiles.preferred_work_locations | 志望勤務先 |
+| activity_level | student_integrated_profiles.activity_level | 就活活動量 |
+
+**抽出条件:** `is_profile_public = true` AND `deleted_at IS NULL`
+
+**JOIN:** `students LEFT JOIN student_integrated_profiles ON students.id = student_integrated_profiles.student_id`（プロフィール未生成の学生も検索対象に含める）
+
+---
+
 ## RLSポリシー方針
+
+**RLS（Row Level Security）とは:** PostgreSQL の機能で、テーブルの各行に対して「誰が読み書きできるか」をポリシーとして定義する仕組み。Supabase ではクライアントからの全リクエストに RLS が適用されるため、アプリ層のバグがあってもDB層で不正アクセスをブロックできる。ただし制御は行単位のみで、カラム単位の制限はできない（→ View で補う）。
 
 ### 学生（student ロール）
 
 | テーブル | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
 | students | 自分のレコードのみ | 自分のIDで作成 | 自分のレコードのみ | — |
-| privacy_settings | 自分のレコードのみ | 自分のIDで作成 | 自分のレコードのみ | — |
 | synced_* | 自分のレコードのみ | — (ETLのみ) | — | — |
 | student_integrated_profiles | 自分のレコードのみ | — (APIのみ) | — | — |
 | scouts | 自分宛のみ | — | status, read_at, responded_at のみ | — |
@@ -1001,9 +1030,9 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 
 | テーブル | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
-| students | is_verified = true かつ is_profile_public = true のみ（**View経由で公開カラムのみ**） | — | — | — |
-| synced_* | 対象学生の privacy_settings が許可している場合のみ | — | — | — |
-| student_integrated_profiles | 対象学生が公開中の場合のみ | — | — | — |
+| public_students (View) | is_verified = true の企業のみ閲覧可 | — | — | — |
+| searchable_students (View) | is_verified = true の企業のみ閲覧可（検索用） | — | — | — |
+| synced_* | 対象学生が is_profile_public = true の場合のみ | — | — | — |
 | scouts | 自社のスカウトのみ | 自社として送信（is_verified = true の場合のみ） | 自社のスカウトのみ | — |
 | companies | 全企業閲覧可 | — | owner/admin のみ自社を更新 | — |
 | company_members | 自社メンバーのみ | owner のみ追加 | owner のみ更新 | owner のみ削除 |
@@ -1026,23 +1055,58 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 
 ## データ連携フロー
 
+### ソースプロダクトの技術基盤
+
+| プロダクト | DB/基盤 | ETL接続方法 |
+|---|---|---|
+| スマートES | PlanetScale (MySQL) → BigQuery | BigQuery API 経由で取得 |
+| 企業分析AI | Supabase (PostgreSQL) | DB直接接続 or Supabase API |
+| 面接練習AI | Supabase (PostgreSQL) | DB直接接続 or Supabase API |
+| すごい就活 | Bubble | Bubble Data API 経由で取得 |
+
+接続方法が3種類あるため、ETLスクリプトはプロダクトごとにアダプターを分ける設計とする。
+
+### データフロー
+
+3つのフェーズで構成される。
+
+#### Phase A: 学生の同意（UIアクション）
+
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│  スマートES   │    │  企業分析AI   │    │  面接練習AI   │    │  すごい就活   │
-│  (MySQL)     │    │  (Postgres)  │    │  (Postgres)  │    │   (CSV)     │
-└──────┬──────┘    └──────┬──────┘    └──────┬──────┘    └──────┬──────┘
-       │                  │                  │                  │
-       └──────────────────┴──────────────────┴──────────────────┘
-                                    │
-                         ETL（定期バッチ同期）
+学生がログイン → データ連携画面で連携プロダクトを選択・承認
                                     │
                                     ▼
                      ┌──────────────────────────┐
                      │   student_product_links   │ ← メールアドレスで紐付け（学生の能動的選択）
-                     └────────────┬─────────────┘
-                                  │
-                 ┌────────────────┼────────────────┐
-                 ▼                ▼                ▼
+                     └──────────────────────────┘
+```
+
+#### Phase B: ETL（定期バッチ同期）
+
+`student_product_links` の紐付けを参照し、該当プロダクトからデータを同期する。
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│  スマートES   │    │  企業分析AI   │    │  面接練習AI   │    │  すごい就活   │
+│ PlanetScale  │    │  Supabase    │    │  Supabase    │    │   Bubble    │
+│  → BigQuery  │    │              │    │              │    │             │
+└──────┬──────┘    └──────┬──────┘    └──────┬──────┘    └──────┬──────┘
+       │                  │                  │                  │
+  BigQuery API      DB直接接続/API     DB直接接続/API     Bubble Data API
+       │                  │                  │                  │
+       └──────────────────┴──────────────────┴──────────────────┘
+                                    │
+                        ETLジョブ（Service Role Key）
+                                    │
+                 ┌────────────────┬──┴─────────────┐
+                 ▼                ▼                 ▼
+          synced_es_entries  synced_researches  synced_interview_sessions
+                                                  synced_activities
+```
+
+#### Phase C: AI プロフィール生成
+
+```
           synced_es_entries  synced_researches  synced_interview_sessions
                                                   synced_activities
                  │                │                │
@@ -1056,13 +1120,14 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
                      └──────────────────────────┘
 ```
 
+#### 連携手順
+
 **連携方式: ETL（定期バッチ）** — リアルタイム性が必要になった場合にAPI連携を検討
 
 1. 学生がスカウトサービスに初回ログイン → Supabase Auth アカウント作成（メール所有権証明済み）
 2. 学生が「データ連携画面」で連携したいプロダクトを選択
 3. 連携候補はメール検証済みアカウントのみ表示。データプレビューで内容を確認後、学生が承認 → `data_consent_granted_at` を記録
-4. `student_product_links` に紐付けを作成
-5. ETLジョブ（Service Role Key）が連携元DBからデータを抽出・変換 → `synced_*` テーブルに格納
-6. Claude API が統合プロフィールを生成 → `student_integrated_profiles` に保存
-7. 学生が `privacy_settings` で公開範囲を設定
-8. `is_profile_public = true` にすると企業から検索可能に
+4. `student_product_links` に紐付けを作成 — **ここまで Phase A**
+5. ETLジョブ（Service Role Key）が連携元DBからデータを抽出・変換 → `synced_*` テーブルに格納 — **Phase B**
+6. Claude API が統合プロフィールを生成 → `student_integrated_profiles` に保存 — **Phase C**
+7. 学生が `is_profile_public = true` にすると企業から検索可能に
