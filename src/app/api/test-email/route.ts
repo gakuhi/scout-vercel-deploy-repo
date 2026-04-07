@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { getResend } from "@/lib/resend/client";
+
+const requestSchema = z.object({
+  to: z.string().email("有効なメールアドレスを指定してください"),
+});
 
 export async function POST(request: Request) {
   if (process.env.NODE_ENV === "production") {
@@ -9,11 +14,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const { to } = await request.json();
+  const parsed = requestSchema.safeParse(await request.json());
 
-  if (!to) {
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: "送信先メールアドレス（to）を指定してください" },
+      { error: parsed.error.issues[0].message },
       { status: 400 },
     );
   }
@@ -21,7 +26,7 @@ export async function POST(request: Request) {
   const resend = getResend();
   const { data, error } = await resend.emails.send({
     from: "Scout <onboarding@resend.dev>",
-    to,
+    to: parsed.data.to,
     subject: "【テスト】Scout メール送信テスト",
     html: "<p>このメールは Scout サービスからのテスト送信です。</p>",
   });
