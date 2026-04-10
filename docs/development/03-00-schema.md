@@ -6,7 +6,7 @@
 
 - **DBMS**: PostgreSQL（Supabase）
 - **認証**: Supabase Auth
-- **テーブル数**: 22（アプリ固有） + Supabase管理テーブル
+- **テーブル数**: 30（アプリ固有） + Supabase管理テーブル
 
 ---
 
@@ -101,16 +101,32 @@ flowchart TB
 
     subgraph student["学生"]
         students
-        privacy_settings
+        student_product_links
+        student_integrated_profiles
     end
 
     subgraph sync["データ連携（ETL）"]
-        student_product_links
-        synced_es_entries
-        synced_researches
-        synced_interview_sessions
-        synced_activities
-        student_integrated_profiles
+        subgraph sync_interviewai["面接練習AI"]
+            synced_interviewai_users
+            synced_interviewai_sessions
+            synced_interviewai_searches
+        end
+        subgraph sync_compai["企業分析AI"]
+            synced_compai_users
+            synced_compai_researches
+            synced_compai_messages
+        end
+        subgraph sync_smartes["スマートES"]
+            synced_smartes_users
+            synced_smartes_motivations
+            synced_smartes_gakuchika
+            synced_smartes_generated_es
+        end
+        subgraph sync_sugoshu["すごい就活"]
+            synced_sugoshu_users
+            synced_sugoshu_resumes
+            synced_sugoshu_diagnoses
+        end
     end
 
     subgraph company["企業"]
@@ -152,7 +168,7 @@ flowchart TB
     students -- "申込" --> event_registrations
     events -- "登録" --> event_registrations
     companies -- "開催" --> events
-    job_postings -. "任意紐付" .-> scouts
+    job_postings -- "紐付" --> scouts
     students -- "通知先" --> notifications
     students -- "設定" --> student_notification_settings
     company_members -- "通知先" --> notifications
@@ -243,49 +259,149 @@ erDiagram
         timestamptz linked_at
     }
 
-    synced_es_entries {
+    %% --- 面接練習AI（interviewai） ---
+    synced_interviewai_users {
         uuid id PK
-        uuid student_id FK
-        text external_es_id
-        text company_name
-        text industry
-        text question_content
-        text answer
-        text selection_type
+        text external_user_id "面接AI側のuser_id"
+        text email "突合用"
         timestamptz original_created_at
         timestamptz synced_at
     }
 
-    synced_researches {
+    synced_interviewai_sessions {
         uuid id PK
-        uuid student_id FK
+        text external_user_id "面接AI側のuser_id"
+        text external_session_id
+        text company_name "companies.name JOIN"
+        text session_type "interview_type.type"
+        text industry "interview_type.industry"
+        text phase "interview_type.phase"
+        text status
+        int overall_score "evaluation_data.overallScore"
+        jsonb skill_scores "カテゴリ別スコア"
+        jsonb strengths "強み"
+        jsonb areas_for_improvement "改善点"
+        text growth_hint "成長アドバイス"
+        jsonb conversation_text "会話トランスクリプト"
+        timestamptz started_at
+        timestamptz original_created_at
+        timestamptz synced_at
+    }
+
+    synced_interviewai_searches {
+        uuid id PK
+        text external_user_id "面接AI側のuser_id"
+        text external_search_id
+        text company_name "companies.name JOIN"
+        timestamptz searched_at
+        timestamptz synced_at
+    }
+
+    %% --- 企業分析AI（compai） ---
+    synced_compai_users {
+        uuid id PK
+        text external_user_id "企業分析AI側のuser_id"
+        text email "突合用"
+        timestamptz original_created_at
+        timestamptz synced_at
+    }
+
+    synced_compai_researches {
+        uuid id PK
+        text external_user_id "企業分析AI側のuser_id"
         text external_research_id
         text title "企業名・トピック"
+        text url "調査対象URL"
         text content "AI分析結果"
-        text url
+        text raw_content "元の生データ"
+        jsonb citations "引用元リスト"
+        boolean is_bookmarked
+        text status
         timestamptz original_created_at
         timestamptz synced_at
     }
 
-    synced_interview_sessions {
+    synced_compai_messages {
         uuid id PK
-        uuid student_id FK
-        text external_session_id
-        text session_type
-        text summary
-        jsonb skill_scores
+        text external_user_id "企業分析AI側のuser_id"
+        text external_message_id
+        text external_research_id "紐付くresearch_id"
+        text content "メッセージ内容"
+        text sender_type "user/assistant"
         timestamptz original_created_at
         timestamptz synced_at
     }
 
-    synced_activities {
+    %% --- スマートES（smartes） ---
+    synced_smartes_users {
         uuid id PK
-        uuid student_id FK
-        text external_record_id
-        text event_name
-        text event_url
-        timestamptz applied_at
-        text notes
+        text external_user_id "スマートES側のuser_id"
+        text email "突合用"
+        timestamptz original_created_at
+        timestamptz synced_at
+    }
+
+    synced_smartes_motivations {
+        uuid id PK
+        text external_user_id "スマートES側のuser_id"
+        text external_motivation_id "applicant_motivation_id"
+        jsonb generated_params "生成パラメーター"
+        text generated_text "志望動機本文"
+        int regenerated_count "再生成回数"
+        timestamptz generated_at
+        timestamptz original_created_at
+        timestamptz synced_at
+    }
+
+    synced_smartes_gakuchika {
+        uuid id PK
+        text external_user_id "スマートES側のuser_id"
+        text external_gakuchika_id "gakuchika_id"
+        jsonb generated_params "生成パラメーター"
+        jsonb original_gakuchika_list "生成元一覧"
+        text generated_text "ガクチカ本文"
+        int regenerated_count "再生成回数"
+        timestamptz generated_at
+        timestamptz original_created_at
+        timestamptz synced_at
+    }
+
+    synced_smartes_generated_es {
+        uuid id PK
+        text external_user_id "スマートES側のuser_id"
+        text external_es_id "es_id"
+        jsonb generated_params "生成パラメーター"
+        jsonb original_es_list "生成元ES一覧"
+        text generated_text "生成ES本文"
+        int regenerated_count "再生成回数"
+        timestamptz generated_at
+        timestamptz original_created_at
+        timestamptz synced_at
+    }
+
+    %% --- すごい就活（sugoshu） ---
+    synced_sugoshu_users {
+        uuid id PK
+        text external_user_id "すごい就活側のuser_id"
+        text email "突合用"
+        timestamptz original_created_at
+        timestamptz synced_at
+    }
+
+    synced_sugoshu_resumes {
+        uuid id PK
+        text external_user_id "すごい就活側のuser_id"
+        text external_resume_id
+        text content "履歴書内容"
+        timestamptz original_created_at
+        timestamptz synced_at
+    }
+
+    synced_sugoshu_diagnoses {
+        uuid id PK
+        text external_user_id "すごい就活側のuser_id"
+        text external_diagnosis_id
+        jsonb diagnosis_data "診断結果"
         timestamptz original_created_at
         timestamptz synced_at
     }
@@ -298,22 +414,10 @@ erDiagram
         jsonb strengths
         jsonb interests
         jsonb skills
+        jsonb preferred_work_locations
         text activity_level
         timestamptz generated_at
         text model_version
-    }
-
-    privacy_settings {
-        uuid id PK
-        uuid student_id FK "UNIQUE"
-        boolean show_real_name
-        boolean show_university
-        boolean show_es_entries
-        boolean show_researches
-        boolean show_interview_data
-        boolean show_activities
-        boolean show_contact_info
-        timestamptz updated_at
     }
 
     scouts {
@@ -323,7 +427,7 @@ erDiagram
         uuid student_id FK
         text subject
         text message
-        uuid job_posting_id FK "NULLable"
+        uuid job_posting_id FK "NOT NULL"
         scout_status status
         timestamptz sent_at
         timestamptz read_at
@@ -494,12 +598,21 @@ erDiagram
 
     %% ===== リレーション =====
     students ||--o{ student_product_links : "links"
-    students ||--o{ synced_es_entries : "has"
-    students ||--o{ synced_researches : "has"
-    students ||--o{ synced_interview_sessions : "has"
-    students ||--o{ synced_activities : "has"
+    student_product_links ||--o| synced_interviewai_users : "external_user_id"
+    student_product_links ||--o{ synced_interviewai_sessions : "external_user_id"
+    student_product_links ||--o{ synced_interviewai_searches : "external_user_id"
+    student_product_links ||--o| synced_compai_users : "external_user_id"
+    student_product_links ||--o{ synced_compai_researches : "external_user_id"
+    student_product_links ||--o{ synced_compai_messages : "external_user_id"
+    student_product_links ||--o| synced_smartes_users : "external_user_id"
+    student_product_links ||--o{ synced_smartes_motivations : "external_user_id"
+    student_product_links ||--o{ synced_smartes_gakuchika : "external_user_id"
+    student_product_links ||--o{ synced_smartes_generated_es : "external_user_id"
+    student_product_links ||--o| synced_sugoshu_users : "external_user_id"
+    student_product_links ||--o{ synced_sugoshu_resumes : "external_user_id"
+    student_product_links ||--o{ synced_sugoshu_diagnoses : "external_user_id"
     students ||--o| student_integrated_profiles : "has"
-    students ||--o| privacy_settings : "configures"
+
     students ||--o{ scouts : "receives"
     students ||--o| student_notification_settings : "configures"
     students ||--o{ notifications : "receives"
@@ -531,7 +644,7 @@ erDiagram
 |---|---|---|
 | `user_role` | `student`, `company_owner`, `company_admin`, `company_member` | ユーザー種別（auth.users の raw_app_meta_data.role に格納） |
 | `company_member_role` | `owner`, `admin`, `member` | 企業内ロール（company_members.role に格納） |
-| `product_source` | `smart_es`, `company_ai`, `interview_ai`, `syukatsu` | 連携元プロダクト |
+| `product_source` | `interviewai`, `compai`, `smartes`, `sugoshu` | 連携元プロダクト。`synced_*` テーブル prefix・ETL Route Handler パスと一致させる |
 | `scout_status` | `sent`, `read`, `accepted`, `declined`, `expired` | スカウトの状態遷移 |
 | `academic_type` | `liberal_arts`, `science`, `other` | 文理区分 |
 | `chat_sender_role` | `student`, `company_member` | チャットメッセージの送信者ロール |
@@ -627,62 +740,212 @@ erDiagram
 | linked_at | TIMESTAMPTZ | DEFAULT now() | 紐付け日時 |
 | | | UNIQUE(student_id, product) | 1プロダクト1リンク |
 
-### 5. synced_es_entries — ES データ（スマートES）
+### 面接練習AI（interviewai）
+
+命名規則: `synced_interviewai_{元テーブル名}`。元テーブル: `users` + `user_profiles`, `interview_sessions` + `companies`, `user_company_searches` + `companies`
+
+#### 🔵 5. synced_interviewai_users — ユーザー情報
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
 | id | UUID | PK, DEFAULT gen_random_uuid() | |
-| student_id | UUID | NOT NULL, FK → students(id) | |
-| external_es_id | TEXT | | スマートES側のes_id |
-| company_name | TEXT | | 対象企業名 |
-| industry | TEXT | | 業界 |
-| question_content | TEXT | | 設問内容 |
-| answer | TEXT | | 回答内容 |
-| selection_type | TEXT | | 選考種別 |
+| external_user_id | TEXT | NOT NULL, UNIQUE | 面接AI側の user_id |
+| email | TEXT | NOT NULL | メールアドレス（突合用） |
 | original_created_at | TIMESTAMPTZ | | 元データの作成日時 |
 | synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
 
-### 6. synced_researches — 企業分析データ（企業分析AI）
+#### 🔵 6. synced_interviewai_sessions — 面接練習データ
+
+元テーブル `interview_sessions` と `companies` をJOINして取得。
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
 | id | UUID | PK, DEFAULT gen_random_uuid() | |
-| student_id | UUID | NOT NULL, FK → students(id) | |
-| external_research_id | TEXT | | 企業分析AI側のid |
+| external_user_id | TEXT | NOT NULL | 面接AI側の user_id |
+| external_session_id | TEXT | NOT NULL | 元テーブルの `id` |
+| company_name | TEXT | | 企業名（companies.name JOIN） |
+| session_type | TEXT | | 面接タイプ（interview_type.type: 個人/集団/GD等） |
+| industry | TEXT | | 志望業界（interview_type.industry） |
+| phase | TEXT | | 就活フェーズ（interview_type.phase） |
+| status | TEXT | | セッション状態（完了/中断等） |
+| overall_score | INT | | 総合スコア（evaluation_data.overallScore） |
+| skill_scores | JSONB | | カテゴリ別スコア（logicalStructure, qaSkill, responseContent） |
+| strengths | JSONB | | 強み（evaluation_data.strengths） |
+| areas_for_improvement | JSONB | | 改善点（evaluation_data.areasForImprovement） |
+| growth_hint | TEXT | | 成長アドバイス（evaluation_data.growthHint） |
+| conversation_text | JSONB | | 会話トランスクリプト（conversation_text） |
+| started_at | TIMESTAMPTZ | | セッション開始日時 |
+| original_created_at | TIMESTAMPTZ | | 元データの created_at |
+| synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
+
+#### 🔵 7. synced_interviewai_searches — 企業検索履歴
+
+元テーブル `user_company_searches` と `companies` をJOINして取得。
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| external_user_id | TEXT | NOT NULL | 面接AI側の user_id |
+| external_search_id | TEXT | NOT NULL | 元テーブルの `id` |
+| company_name | TEXT | | 検索した企業名（companies.name JOIN） |
+| searched_at | TIMESTAMPTZ | | 検索日時 |
+| synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
+
+### 企業分析AI（compai）
+
+命名規則: `synced_compai_{元テーブル名}`。元テーブル: `profiles`, `researches`, `research_messages`
+
+#### 🔵 8. synced_compai_users — ユーザー情報
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| external_user_id | TEXT | NOT NULL, UNIQUE | 企業分析AI側の user_id |
+| email | TEXT | NOT NULL | メールアドレス（突合用） |
+| original_created_at | TIMESTAMPTZ | | 元データの作成日時 |
+| synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
+
+#### 🔵 9. synced_compai_researches — 企業分析レポート
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| external_user_id | TEXT | NOT NULL | 企業分析AI側の user_id（researches.user_id） |
+| external_research_id | TEXT | NOT NULL | 元テーブルの `id` |
 | title | TEXT | | 調査対象（企業名・トピック） |
+| url | TEXT | | 調査対象URL |
 | content | TEXT | | AI生成の分析結果 |
-| url | TEXT | | 関連URL |
-| original_created_at | TIMESTAMPTZ | | 元データの作成日時 |
+| raw_content | TEXT | | 元の生データ |
+| citations | JSONB | | 引用元リスト |
+| is_bookmarked | BOOLEAN | | ブックマーク済みフラグ |
+| status | TEXT | | ステータス（完了/処理中等） |
+| original_created_at | TIMESTAMPTZ | | 元データの created_at |
 | synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
 
-### 7. synced_interview_sessions — 面接練習データ（面接練習AI）
+**取得しないフィールド:** `perplexity_id`, `model`, `tokens_used`, `plan_tier`（システム内部情報）、`deleted_at`（論理削除済みはETLで除外）
+
+#### 🔵 10. synced_compai_messages — 質問内容
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
 | id | UUID | PK, DEFAULT gen_random_uuid() | |
-| student_id | UUID | NOT NULL, FK → students(id) | |
-| external_session_id | TEXT | | 面接練習AI側のsession_id |
-| session_type | TEXT | | 面接タイプ（個人/集団/GD等） |
-| summary | TEXT | | セッション要約 |
-| skill_scores | JSONB | | スキル評価スコア |
-| original_created_at | TIMESTAMPTZ | | 元データの作成日時 |
+| external_user_id | TEXT | NOT NULL | 企業分析AI側の user_id（researches経由で取得） |
+| external_message_id | TEXT | NOT NULL | 元テーブルの `id` |
+| external_research_id | TEXT | NOT NULL | 紐付くresearchのID（research_messages.research_id） |
+| content | TEXT | | メッセージ内容 |
+| sender_type | TEXT | | user / assistant |
+| original_created_at | TIMESTAMPTZ | | 元データの created_at |
 | synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
 
-### 8. synced_activities — 就活活動データ（すごい就活）
+**取得しないフィールド:** `model`, `tokens_used`（システム内部情報）、`feedback`（UI用フィードバック）
+
+### スマートES（smartes）
+
+命名規則: `synced_smartes_{元テーブル名}`。プロフィール系の細かいテーブルはETL側でJOINして集約。
+
+#### 🔵 11. synced_smartes_users — ユーザー情報
+
+元テーブル: `user`。ETLで `email IS NULL` のレコードは除外する（LINE認証のみでメール未登録のユーザーは突合不可のため）。
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
 | id | UUID | PK, DEFAULT gen_random_uuid() | |
-| student_id | UUID | NOT NULL, FK → students(id) | |
-| external_record_id | TEXT | | すごい就活側の応募ID |
-| event_name | TEXT | | イベント・企業名 |
-| event_url | TEXT | | イベントURL |
-| applied_at | TIMESTAMPTZ | | 応募日時 |
-| notes | TEXT | | 備考 |
+| external_user_id | TEXT | NOT NULL, UNIQUE | スマートES側の user_id |
+| email | TEXT | NOT NULL | メールアドレス（突合用） |
+| original_created_at | TIMESTAMPTZ | | 元データの created_at |
+| synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
+
+#### 🔵 12. synced_smartes_motivations — 志望動機
+
+元テーブル: `users_generated_applicant_motivations`
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| external_user_id | TEXT | NOT NULL | スマートES側の user_id |
+| external_motivation_id | TEXT | NOT NULL | 元テーブルの `applicant_motivation_id` |
+| generated_params | JSONB | | 生成時のパラメーター（企業名等を含む） |
+| generated_text | TEXT | | 生成された志望動機の本文 |
+| regenerated_count | INT | | 再生成回数（推敲の深さ） |
+| generated_at | TIMESTAMPTZ | | 生成日時 |
+| original_created_at | TIMESTAMPTZ | | 元データの created_at |
+| synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
+
+#### 🔵 13. synced_smartes_gakuchika — ガクチカ
+
+元テーブル: `users_generated_gakuchika`
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| external_user_id | TEXT | NOT NULL | スマートES側の user_id |
+| external_gakuchika_id | TEXT | NOT NULL | 元テーブルの `gakuchika_id` |
+| generated_params | JSONB | | 生成時のパラメーター |
+| original_gakuchika_list | JSONB | | 生成元となったガクチカの参照一覧 |
+| generated_text | TEXT | | 生成されたガクチカの本文 |
+| regenerated_count | INT | | 再生成回数（推敲の深さ） |
+| generated_at | TIMESTAMPTZ | | 生成日時 |
+| original_created_at | TIMESTAMPTZ | | 元データの created_at |
+| synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
+
+#### 🔵 14. synced_smartes_generated_es — AI生成ES
+
+元テーブル: `users_generated_es`
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| external_user_id | TEXT | NOT NULL | スマートES側の user_id |
+| external_es_id | TEXT | NOT NULL | 元テーブルの `es_id` |
+| generated_params | JSONB | | 生成時のパラメーター（企業名・設問等を含む） |
+| original_es_list | JSONB | | 生成元となったESの参照一覧 |
+| generated_text | TEXT | | 生成されたESの本文 |
+| regenerated_count | INT | | 再生成回数（推敲の深さ） |
+| generated_at | TIMESTAMPTZ | | 生成日時 |
+| original_created_at | TIMESTAMPTZ | | 元データの created_at |
+| synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
+
+### すごい就活（sugoshu）
+
+命名規則: `synced_sugoshu_{元テーブル名}`。元テーブル: `user` + `user_profile`, `resumeDraft`, 診断テーブル
+
+#### 🔵 15. synced_sugoshu_users — ユーザー情報
+
+元テーブル `user` と `user_profile` をJOINして取得。
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| external_user_id | TEXT | NOT NULL, UNIQUE | すごい就活側の user_id |
+| email | TEXT | NOT NULL | メールアドレス（突合用） |
 | original_created_at | TIMESTAMPTZ | | 元データの作成日時 |
 | synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
 
-### 9. student_integrated_profiles — AI統合プロフィール
+#### 🔵 16. synced_sugoshu_resumes — 履歴書
+
+元テーブル: `resumeDraft`
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| external_user_id | TEXT | NOT NULL | すごい就活側の user_id |
+| external_resume_id | TEXT | | すごい就活側の resume_id |
+| content | TEXT | | 履歴書内容 |
+| original_created_at | TIMESTAMPTZ | | 元データの作成日時 |
+| synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
+
+#### 🔵 17. synced_sugoshu_diagnoses — 診断結果
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| external_user_id | TEXT | NOT NULL | すごい就活側の user_id |
+| external_diagnosis_id | TEXT | | すごい就活側の diagnosis_id |
+| diagnosis_data | JSONB | | 診断結果 |
+| original_created_at | TIMESTAMPTZ | | 元データの作成日時 |
+| synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
+
+### 🔵 18. student_integrated_profiles — AI統合プロフィール
 
 Claude APIで4プロダクトのデータを分析し、統合的な学生プロフィールを生成・保存する。
 
@@ -694,28 +957,12 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | strengths | JSONB | | 強み・特性 |
 | interests | JSONB | | 志望業界・企業群 |
 | skills | JSONB | | スキル評価 |
+| preferred_work_locations | JSONB | | 志望勤務先（例: ["東京", "大阪"]） |
 | activity_level | TEXT | | 就活活動量（active/moderate/low） |
 | generated_at | TIMESTAMPTZ | DEFAULT now() | 生成日時 |
 | model_version | TEXT | | 使用AIモデル |
 
-### 10. privacy_settings — プライバシー設定
-
-学生が企業に公開するデータの範囲を制御する。
-
-| カラム | 型 | 制約 | 説明 |
-|---|---|---|---|
-| id | UUID | PK, DEFAULT gen_random_uuid() | |
-| student_id | UUID | NOT NULL, UNIQUE, FK → students(id) | |
-| show_real_name | BOOLEAN | DEFAULT false | 実名を表示 |
-| show_university | BOOLEAN | DEFAULT false | 大学名を表示 |
-| show_es_entries | BOOLEAN | DEFAULT false | ES情報を表示 |
-| show_researches | BOOLEAN | DEFAULT false | 企業分析情報を表示 |
-| show_interview_data | BOOLEAN | DEFAULT false | 面接練習情報を表示 |
-| show_activities | BOOLEAN | DEFAULT false | 就活活動情報を表示 |
-| show_contact_info | BOOLEAN | DEFAULT false | 連絡先を表示 |
-| updated_at | TIMESTAMPTZ | DEFAULT now() | |
-
-### 11. scouts — スカウトメッセージ
+### 19. scouts — スカウトメッセージ
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -723,7 +970,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | company_id | UUID | NOT NULL, FK → companies(id) | 送信元企業 |
 | sender_id | UUID | NOT NULL, FK → company_members(id) | 送信者 |
 | student_id | UUID | NOT NULL, FK → students(id) | 送信先学生 |
-| job_posting_id | UUID | NULLable, FK → job_postings(id) | 紐付く求人（任意） |
+| job_posting_id | UUID | NOT NULL, FK → job_postings(id) | 紐付く求人 |
 | subject | TEXT | NOT NULL | 件名 |
 | message | TEXT | NOT NULL | 本文 |
 | status | scout_status | DEFAULT 'sent' | 状態 |
@@ -732,7 +979,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | responded_at | TIMESTAMPTZ | | 応答日時 |
 | expires_at | TIMESTAMPTZ | | 有効期限 |
 
-### 12. saved_searches — 検索条件保存（MVP後）
+### 🔵 20. saved_searches — 検索条件保存（MVP後）
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -743,7 +990,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 13. company_plans — 課金プラン（MVP後）
+### 🔵 21. company_plans — 課金プラン（MVP後）
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -759,7 +1006,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 14. audit_logs — 監査ログ
+### 22. audit_logs — 監査ログ
 
 セキュリティ上重要な操作を記録する。`internal` スキーマに配置し、クライアントからのRPCアクセスを防ぐ。
 
@@ -775,7 +1022,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | ip_address | TEXT | | リクエスト元IPアドレス |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 15. job_postings — 求人情報
+### 23. job_postings — 求人情報
 
 企業が作成する求人。スカウト送信時に紐付けることで、学生に具体的なポジション情報を提示する。
 
@@ -799,9 +1046,11 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 16. chat_messages — チャットメッセージ
+### 24. chat_messages — チャットメッセージ
 
-スカウト承諾後の学生-企業間メッセージ。スカウト（scouts）単位のスレッド形式。Supabase Realtime で `scout_id` フィルタして配信。
+スカウト承諾後の学生-企業間メッセージ。スカウト（scouts）単位のスレッド形式。
+
+**リアルタイム配信**: Supabase Realtime（PostgreSQL の logical replication ベースの WebSocket 配信機能）を使用。`scout_id` でチャンネルをフィルタし、該当スカウトのスレッド参加者（学生・企業担当者）にのみ INSERT イベントを即時配信する。
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -815,7 +1064,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 
 ※ スカウトの `status` が `accepted` のときのみメッセージ送信を許可（RLS + アプリ層で二重制御）。
 
-### 17. notifications — 通知
+### 25. notifications — 通知
 
 イベント駆動の通知レコード。LINE通知とアプリ内通知の両方で参照する。
 
@@ -833,7 +1082,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | line_sent_at | TIMESTAMPTZ | | LINE通知送信日時（NULL = 未送信 or LINE未連携） |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 18. student_notification_settings — 学生通知設定
+### 26. student_notification_settings — 学生通知設定
 
 学生ごとの通知種別ON/OFF設定。1学生1レコード。
 
@@ -849,7 +1098,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | in_app_enabled | BOOLEAN | DEFAULT true | アプリ内通知の一括ON/OFF |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 19. company_notification_settings — 企業担当者通知設定
+### 27. company_notification_settings — 企業担当者通知設定
 
 企業担当者ごとの通知種別ON/OFF設定。1担当者1レコード。
 
@@ -865,7 +1114,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | in_app_enabled | BOOLEAN | DEFAULT true | アプリ内通知の一括ON/OFF |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 20. events — イベント
+### 28. events — イベント
 
 企業主催または運営主催のイベント（説明会・セミナー・インターン等）。`company_id` が NULL の場合はプラットフォーム運営主催。
 
@@ -874,7 +1123,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | id | UUID | PK, DEFAULT gen_random_uuid() | |
 | company_id | UUID | NULLable, FK → companies(id) | 主催企業（NULLの場合は運営主催） |
 | created_by | UUID | NULLable, FK → company_members(id) | 作成した企業担当者（運営主催の場合はNULL） |
-| organizer_type | event_organizer_type | NOT NULL | `company` / `platform` |
+| organizer_type | event_organizer_type | NOT NULL | `company` / `platform`。`company_id` の NULL 判定でも判別可能だが、RLS やクエリで明示的にフィルタできるよう専用カラムとして持つ |
 | title | TEXT | NOT NULL | イベントタイトル |
 | description | TEXT | | イベント詳細・説明文 |
 | event_type | TEXT | | イベント種別（例: 説明会、セミナー、インターン、合同企業説明会 等） |
@@ -892,7 +1141,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 21. event_registrations — イベント参加申し込み
+### 29. event_registrations — イベント参加申し込み
 
 学生のイベント参加申し込みを管理する。1イベント1学生1レコード。
 
@@ -907,7 +1156,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | | | UNIQUE(event_id, student_id) | 重複申し込み防止 |
 
-### 22. anonymous_visits — 匿名流入経路トラッキング
+### 30. anonymous_visits — 匿名流入経路トラッキング
 
 マジックリンク認証時のアクセス元追跡。初回アクセス時にサーバー側で匿名セッションIDとともに保存し、認証コールバック時にユーザーIDと紐付ける。全操作は Service Role Key 経由。
 
@@ -935,6 +1184,8 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 
 ## インデックス
 
+`synced_*_users.external_user_id` は `UNIQUE` 制約により暗黙のインデックスが作成されるため、明示的な定義は不要。`synced_*_users.email` は突合フェーズで `WHERE LOWER(email) = LOWER($1)` の形で4プロダクト分すべて引かれるため、関数インデックスを張る。
+
 ### 検索パフォーマンス用
 
 | テーブル | インデックス | 用途 |
@@ -944,11 +1195,20 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | students | (university) | 大学名フィルター |
 | students | (prefecture) | 都道府県フィルター |
 | students | (academic_type) | 文理フィルター |
-| synced_es_entries | (student_id) | 学生別ES一覧 |
-| synced_es_entries | (industry) | 業界別検索 |
-| synced_researches | (student_id) | 学生別調査一覧 |
-| synced_interview_sessions | (student_id) | 学生別面接一覧 |
-| synced_activities | (student_id) | 学生別活動一覧 |
+| synced_interviewai_users | (LOWER(email)) | メール突合用（大文字小文字を区別せず突合するため関数インデックス） |
+| synced_interviewai_sessions | (external_user_id) | ユーザー別面接一覧 |
+| synced_interviewai_searches | (external_user_id) | ユーザー別検索履歴 |
+| synced_compai_users | (LOWER(email)) | メール突合用（大文字小文字を区別せず突合するため関数インデックス） |
+| synced_compai_researches | (external_user_id) | ユーザー別調査一覧 |
+| synced_compai_messages | (external_user_id) | ユーザー別質問一覧 |
+| synced_compai_messages | (external_research_id) | research別メッセージ |
+| synced_smartes_users | (LOWER(email)) | メール突合用（大文字小文字を区別せず突合するため関数インデックス） |
+| synced_smartes_motivations | (external_user_id) | ユーザー別志望動機一覧 |
+| synced_smartes_gakuchika | (external_user_id) | ユーザー別ガクチカ一覧 |
+| synced_smartes_generated_es | (external_user_id) | ユーザー別AI生成ES一覧 |
+| synced_sugoshu_users | (LOWER(email)) | メール突合用（大文字小文字を区別せず突合するため関数インデックス） |
+| synced_sugoshu_resumes | (external_user_id) | ユーザー別履歴書一覧 |
+| synced_sugoshu_diagnoses | (external_user_id) | ユーザー別診断一覧 |
 | scouts | (student_id, status) | 学生のスカウト一覧 |
 | scouts | (company_id, sent_at DESC) | 企業のスカウト履歴 |
 | student_product_links | (external_user_id, product) | 外部ID逆引き |
@@ -976,14 +1236,71 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 
 ---
 
+## View 定義
+
+**View（ビュー）とは:** テーブルに対する SELECT クエリに名前をつけて保存したもの。実データは持たず、参照するたびに元テーブルから最新データを取得する仮想テーブル。用途は主に2つ:
+
+- **カラムの公開制限** — テーブルの一部カラムだけを見せたいとき（例: 企業に学生の実名・連絡先を隠す）
+- **JOIN の簡略化** — 複数テーブルの結合結果をまとめておき、毎回同じ JOIN を書かずに済むようにする
+
+RLS は行単位のアクセス制御のみ。カラム単位の制限や頻出 JOIN の簡略化には View を使う。
+
+### public_students — 学生公開プロフィール
+
+企業担当者が閲覧できる学生情報を制限するビュー。個人を特定できる情報（実名・連絡先・住所詳細）を除外する。
+
+| カラム | 元テーブル | 説明 |
+|---|---|---|
+| id | students.id | |
+| university | students.university | 大学名 |
+| faculty | students.faculty | 学部 |
+| department | students.department | 学科 |
+| academic_type | students.academic_type | 文理区分 |
+| graduation_year | students.graduation_year | 卒業年度 |
+| prefecture | students.prefecture | 都道府県（市区町村以下は非公開） |
+| profile_image_url | students.profile_image_url | プロフィール画像 |
+| bio | students.bio | 自己紹介文 |
+
+**抽出条件:** `is_profile_public = true` AND `deleted_at IS NULL`
+
+※ 企業担当者の RLS は `students` テーブルではなくこの View に対して設定する。スカウト承諾後に実名・連絡先を開示するフローは別途検討。
+
+### searchable_students — 学生検索用ビュー
+
+企業担当者が学生を検索する際に使用する。`students` と `student_integrated_profiles` を JOIN し、検索・フィルタに必要な情報をまとめる。
+
+| カラム | 元テーブル | 説明 |
+|---|---|---|
+| id | students.id | |
+| university | students.university | 大学名 |
+| faculty | students.faculty | 学部 |
+| academic_type | students.academic_type | 文理区分 |
+| graduation_year | students.graduation_year | 卒業年度 |
+| prefecture | students.prefecture | 都道府県 |
+| profile_image_url | students.profile_image_url | プロフィール画像 |
+| bio | students.bio | 自己紹介文 |
+| summary | student_integrated_profiles.summary | AIによる人物要約 |
+| strengths | student_integrated_profiles.strengths | 強み・特性 |
+| interests | student_integrated_profiles.interests | 志望業界・企業群 |
+| skills | student_integrated_profiles.skills | スキル評価 |
+| preferred_work_locations | student_integrated_profiles.preferred_work_locations | 志望勤務先 |
+| activity_level | student_integrated_profiles.activity_level | 就活活動量 |
+
+**抽出条件:** `is_profile_public = true` AND `deleted_at IS NULL`
+
+**JOIN:** `students LEFT JOIN student_integrated_profiles ON students.id = student_integrated_profiles.student_id`（プロフィール未生成の学生も検索対象に含める）
+
+---
+
 ## RLSポリシー方針
+
+**RLS（Row Level Security）とは:** PostgreSQL の機能で、テーブルの各行に対して「誰が読み書きできるか」をポリシーとして定義する仕組み。Supabase ではクライアントからの全リクエストに RLS が適用されるため、アプリ層のバグがあってもDB層で不正アクセスをブロックできる。ただし制御は行単位のみで、カラム単位の制限はできない（→ View で補う）。
 
 ### 学生（student ロール）
 
 | テーブル | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
 | students | 自分のレコードのみ | 自分のIDで作成 | 自分のレコードのみ | — |
-| privacy_settings | 自分のレコードのみ | 自分のIDで作成 | 自分のレコードのみ | — |
 | synced_* | 自分のレコードのみ | — (ETLのみ) | — | — |
 | student_integrated_profiles | 自分のレコードのみ | — (APIのみ) | — | — |
 | scouts | 自分宛のみ | — | status, read_at, responded_at のみ | — |
@@ -1001,9 +1318,9 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 
 | テーブル | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
-| students | is_verified = true かつ is_profile_public = true のみ（**View経由で公開カラムのみ**） | — | — | — |
-| synced_* | 対象学生の privacy_settings が許可している場合のみ | — | — | — |
-| student_integrated_profiles | 対象学生が公開中の場合のみ | — | — | — |
+| public_students (View) | is_verified = true の企業のみ閲覧可 | — | — | — |
+| searchable_students (View) | is_verified = true の企業のみ閲覧可（検索用） | — | — | — |
+| synced_* | 対象学生が is_profile_public = true の場合のみ | — | — | — |
 | scouts | 自社のスカウトのみ | 自社として送信（is_verified = true の場合のみ） | 自社のスカウトのみ | — |
 | companies | 全企業閲覧可 | — | owner/admin のみ自社を更新 | — |
 | company_members | 自社メンバーのみ | owner のみ追加 | owner のみ更新 | owner のみ削除 |
@@ -1026,27 +1343,71 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 
 ## データ連携フロー
 
+### ソースプロダクトの技術基盤
+
+| プロダクト | DB基盤 | ETL接続方法 | read-only の実現方法 |
+|---|---|---|---|
+| スマートES | PlanetScale (MySQL) | `@planetscale/database`（HTTP経由） | ブランチパスワード作成時に Read-only ロール指定 |
+| 企業分析AI | Supabase (PostgreSQL) | PostgreSQL 直接接続 | カスタムロール（`scout_reader`）を作成し SELECT 権限のみ付与 |
+| 面接練習AI | Supabase (PostgreSQL) | PostgreSQL 直接接続 | 同上 |
+| すごい就活 | Bubble | Bubble Data API | API 自体が読み取り専用 |
+
+接続方法が3種類あるため、ETLスクリプトはプロダクトごとにアダプターを分ける設計とする。全接続は read-only で、各プロダクトDBへの書き込みリスクはゼロ。
+
+### データフロー
+
+3つのフェーズで構成される。
+
+#### Phase A: ETL常時同期（バックグラウンド）
+
+全プロダクトの全ユーザーデータを、同意の有無に関わらず常時同期する。`synced_*` テーブルには `external_user_id` のみ保持し、スカウト側の `student_id` とは紐付かない状態で格納される。
+
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
 │  スマートES   │    │  企業分析AI   │    │  面接練習AI   │    │  すごい就活   │
-│  (MySQL)     │    │  (Postgres)  │    │  (Postgres)  │    │   (CSV)     │
+│ PlanetScale  │    │  Supabase    │    │  Supabase    │    │   Bubble    │
+│  (HTTP経由)  │    │ (PostgreSQL  │    │ (PostgreSQL  │    │ (Data API)  │
+│              │    │  直接接続)    │    │  直接接続)    │    │             │
 └──────┬──────┘    └──────┬──────┘    └──────┬──────┘    └──────┬──────┘
        │                  │                  │                  │
        └──────────────────┴──────────────────┴──────────────────┘
                                     │
-                         ETL（定期バッチ同期）
+                     ETLジョブ（常時・15分おき差分同期）
+                                    │
+    ┌───────────────┬───────────────┼───────────────┐
+    ▼               ▼               ▼               ▼
+ synced_          synced_         synced_          synced_
+ interviewai_*   compai_*       smartes_*        sugoshu_*
+ (3テーブル)      (3テーブル)     (4テーブル)       (3テーブル)
+
+ ※ 全テーブルに external_user_id のみ保持。student_id は持たない
+ ※ student_product_links がない限り、スカウト側の学生とは紐付かない
+```
+
+#### Phase B: 学生の同意（UIアクション）
+
+学生がスカウトサービスに登録後、連携画面で `synced_*_users` のemailと突合し、利用中のプロダクトを表示。学生が同意すると `student_product_links` を作成し、`students.data_consent_granted_at` を更新する。同意は学生単位（プロダクトごとではない）であり、一度同意すれば既に同期済みの全データがJOIN可能になる。
+
+```
+学生がログイン
+    → synced_*_users.email で突合（「面接AIを使っていますね」）
+    → データプレビュー表示
+    → 学生が同意
                                     │
                                     ▼
-                     ┌──────────────────────────┐
-                     │   student_product_links   │ ← メールアドレスで紐付け（学生の能動的選択）
-                     └────────────┬─────────────┘
-                                  │
-                 ┌────────────────┼────────────────┐
-                 ▼                ▼                ▼
-          synced_es_entries  synced_researches  synced_interview_sessions
-                                                  synced_activities
-                 │                │                │
-                 └────────────────┼────────────────┘
+        ┌────────────────────────────────────────────┐
+        │  students.data_consent_granted_at = now()  │ ← 学生単位の同意フラグ
+        │  student_product_links を各プロダクト分INSERT │ ← プロダクト紐付け
+        └────────────────────────────────────────────┘
+                                    │
+              student_product_links.external_user_id で
+              synced_* テーブルの既存データとJOIN可能に
+```
+
+#### Phase C: AI プロフィール生成
+
+```
+ students → student_product_links → synced_*（external_user_id でJOIN）
                                   │
                            Claude API で分析
                                   │
@@ -1056,13 +1417,11 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
                      └──────────────────────────┘
 ```
 
-**連携方式: ETL（定期バッチ）** — リアルタイム性が必要になった場合にAPI連携を検討
+#### 連携手順まとめ
 
-1. 学生がスカウトサービスに初回ログイン → Supabase Auth アカウント作成（メール所有権証明済み）
-2. 学生が「データ連携画面」で連携したいプロダクトを選択
-3. 連携候補はメール検証済みアカウントのみ表示。データプレビューで内容を確認後、学生が承認 → `data_consent_granted_at` を記録
-4. `student_product_links` に紐付けを作成
-5. ETLジョブ（Service Role Key）が連携元DBからデータを抽出・変換 → `synced_*` テーブルに格納
-6. Claude API が統合プロフィールを生成 → `student_integrated_profiles` に保存
-7. 学生が `privacy_settings` で公開範囲を設定
-8. `is_profile_public = true` にすると企業から検索可能に
+1. **[常時]** ETLが各プロダクトDBから全ユーザーの全データを `synced_*` テーブルに同期（`external_user_id` のみ保持） — **Phase A**
+2. 学生がスカウトサービスに初回ログイン → Supabase Auth アカウント作成
+3. 学生が「データ連携画面」を開く → `synced_*_users.email` で突合 → 利用中プロダクトを表示
+4. 連携データのプレビュー確認後、学生が同意 → `data_consent_granted_at` を記録、`student_product_links` を作成 → 既に同期済みのデータとJOIN可能に — **Phase B**
+5. Claude API が `student_product_links.external_user_id` で各 `synced_*` テーブルのデータを収集し、統合プロフィールを生成 → `student_integrated_profiles` に保存 — **Phase C**
+6. 学生が `is_profile_public = true` にすると企業から検索可能に
