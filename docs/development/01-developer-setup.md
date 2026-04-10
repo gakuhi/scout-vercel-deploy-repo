@@ -310,7 +310,39 @@ SUPABASE_SERVICE_ROLE_KEY=（福田から共有された service_role key）
 
 ---
 
-## 6. 開発サーバーの起動
+## 6. 外部サービス設定（認証プロバイダー等）
+
+マイグレーションSQLでは管理できない設定。ローカル（config.toml）とリモート（Supabase Dashboard）は自動同期されないため、設定変更時は両方を更新すること。
+
+### 6.1 認証プロバイダー
+
+| 設定内容 | ローカル（config.toml） | リモート（Dashboard） |
+|---|---|---|
+| 認証プロバイダー（LINE, Email/マジックリンク等） | `[auth.external.line]` 等 | Authentication > Providers |
+| プロバイダーのシークレットキー | config.toml or `.env` | Dashboard > Providers |
+| MFA 設定 | config.toml `[auth.mfa]` | Authentication > MFA |
+| セッション設定（有効期限等） | config.toml `[auth.sessions]` | Authentication > Settings |
+
+**運用ルール:**
+- `config.toml` を正（マスター）として管理し、リモートはそれに合わせて設定する
+- シークレットキーは `.env` に分離し、git にコミットしない
+
+### 6.2 LINE Login チャネル
+
+LINE Login は環境ごとにチャネルを分ける。コールバックURLが環境ごとに異なり、本番チャネルで検証中のミスが実ユーザーに影響するため。
+
+| | 検証用チャネル | 本番用チャネル |
+|---|---|---|
+| 用途 | ローカル + staging | production |
+| コールバックURL | `http://localhost:3000/auth/callback`, staging URL | 本番ドメイン |
+| LINE Developers 設定 | 未認証でOK | 認証済みアカウント |
+| チャネルID/シークレット | `.env.local` / staging 環境変数 | 本番環境変数 |
+
+LINE Developers コンソールで同じプロバイダー配下に2つチャネルを作成する。チャネルの作成・管理は福田が行う。
+
+---
+
+## 7. 開発サーバーの起動
 
 ```bash
 npm run dev
@@ -324,7 +356,7 @@ npm run dev
 
 ---
 
-## 7. 環境構成
+## 8. 環境構成
 
 | 環境 | ブランチ | URL | Supabase | 用途 |
 |---|---|---|---|---|
@@ -382,7 +414,7 @@ gakuhi/scout-vercel-deploy-repo（個人リポ）
 
 ---
 
-## 8. Git 運用ルール
+## 9. Git 運用ルール
 
 | ルール | 詳細 |
 |---|---|
@@ -446,7 +478,7 @@ PR 作成時に自動でテンプレートが表示される（`.github/pull_req
 
 ---
 
-## 9. 主要 npm スクリプト
+## 10. 主要 npm スクリプト
 
 | コマンド | 用途 |
 |---|---|
@@ -460,7 +492,7 @@ PR 作成時に自動でテンプレートが表示される（`.github/pull_req
 
 ---
 
-## 10. トラブルシューティング
+## 11. トラブルシューティング
 
 | 問題 | 対処法 |
 |---|---|
