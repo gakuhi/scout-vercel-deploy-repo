@@ -414,6 +414,7 @@ erDiagram
         jsonb strengths
         jsonb interests
         jsonb skills
+        jsonb preferred_work_locations
         text activity_level
         timestamptz generated_at
         text model_version
@@ -643,7 +644,7 @@ erDiagram
 |---|---|---|
 | `user_role` | `student`, `company_owner`, `company_admin`, `company_member` | ユーザー種別（auth.users の raw_app_meta_data.role に格納） |
 | `company_member_role` | `owner`, `admin`, `member` | 企業内ロール（company_members.role に格納） |
-| `product_source` | `smart_es`, `company_ai`, `interview_ai`, `syukatsu` | 連携元プロダクト |
+| `product_source` | `interviewai`, `compai`, `smartes`, `sugoshu` | 連携元プロダクト。`synced_*` テーブル prefix・ETL Route Handler パスと一致させる |
 | `scout_status` | `sent`, `read`, `accepted`, `declined`, `expired` | スカウトの状態遷移 |
 | `academic_type` | `liberal_arts`, `science`, `other` | 文理区分 |
 | `chat_sender_role` | `student`, `company_member` | チャットメッセージの送信者ロール |
@@ -944,7 +945,7 @@ erDiagram
 | original_created_at | TIMESTAMPTZ | | 元データの作成日時 |
 | synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
 
-### 🔵 9. student_integrated_profiles — AI統合プロフィール
+### 🔵 18. student_integrated_profiles — AI統合プロフィール
 
 Claude APIで4プロダクトのデータを分析し、統合的な学生プロフィールを生成・保存する。
 
@@ -961,7 +962,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | generated_at | TIMESTAMPTZ | DEFAULT now() | 生成日時 |
 | model_version | TEXT | | 使用AIモデル |
 
-### 10. scouts — スカウトメッセージ
+### 19. scouts — スカウトメッセージ
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -978,7 +979,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | responded_at | TIMESTAMPTZ | | 応答日時 |
 | expires_at | TIMESTAMPTZ | | 有効期限 |
 
-### 🔵 11. saved_searches — 検索条件保存（MVP後）
+### 🔵 20. saved_searches — 検索条件保存（MVP後）
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -989,7 +990,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 🔵 12. company_plans — 課金プラン（MVP後）
+### 🔵 21. company_plans — 課金プラン（MVP後）
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -1005,7 +1006,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 13. audit_logs — 監査ログ
+### 22. audit_logs — 監査ログ
 
 セキュリティ上重要な操作を記録する。`internal` スキーマに配置し、クライアントからのRPCアクセスを防ぐ。
 
@@ -1021,7 +1022,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | ip_address | TEXT | | リクエスト元IPアドレス |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 14. job_postings — 求人情報
+### 23. job_postings — 求人情報
 
 企業が作成する求人。スカウト送信時に紐付けることで、学生に具体的なポジション情報を提示する。
 
@@ -1045,7 +1046,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 15. chat_messages — チャットメッセージ
+### 24. chat_messages — チャットメッセージ
 
 スカウト承諾後の学生-企業間メッセージ。スカウト（scouts）単位のスレッド形式。
 
@@ -1063,7 +1064,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 
 ※ スカウトの `status` が `accepted` のときのみメッセージ送信を許可（RLS + アプリ層で二重制御）。
 
-### 16. notifications — 通知
+### 25. notifications — 通知
 
 イベント駆動の通知レコード。LINE通知とアプリ内通知の両方で参照する。
 
@@ -1081,7 +1082,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | line_sent_at | TIMESTAMPTZ | | LINE通知送信日時（NULL = 未送信 or LINE未連携） |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 17. student_notification_settings — 学生通知設定
+### 26. student_notification_settings — 学生通知設定
 
 学生ごとの通知種別ON/OFF設定。1学生1レコード。
 
@@ -1097,7 +1098,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | in_app_enabled | BOOLEAN | DEFAULT true | アプリ内通知の一括ON/OFF |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 18. company_notification_settings — 企業担当者通知設定
+### 27. company_notification_settings — 企業担当者通知設定
 
 企業担当者ごとの通知種別ON/OFF設定。1担当者1レコード。
 
@@ -1113,7 +1114,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | in_app_enabled | BOOLEAN | DEFAULT true | アプリ内通知の一括ON/OFF |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 19. events — イベント
+### 28. events — イベント
 
 企業主催または運営主催のイベント（説明会・セミナー・インターン等）。`company_id` が NULL の場合はプラットフォーム運営主催。
 
@@ -1140,7 +1141,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
 
-### 20. event_registrations — イベント参加申し込み
+### 29. event_registrations — イベント参加申し込み
 
 学生のイベント参加申し込みを管理する。1イベント1学生1レコード。
 
@@ -1155,7 +1156,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | | | UNIQUE(event_id, student_id) | 重複申し込み防止 |
 
-### 21. anonymous_visits — 匿名流入経路トラッキング
+### 30. anonymous_visits — 匿名流入経路トラッキング
 
 マジックリンク認証時のアクセス元追跡。初回アクセス時にサーバー側で匿名セッションIDとともに保存し、認証コールバック時にユーザーIDと紐付ける。全操作は Service Role Key 経由。
 
@@ -1183,6 +1184,8 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 
 ## インデックス
 
+`synced_*_users.external_user_id` は `UNIQUE` 制約により暗黙のインデックスが作成されるため、明示的な定義は不要。`synced_*_users.email` は突合フェーズで `WHERE LOWER(email) = LOWER($1)` の形で4プロダクト分すべて引かれるため、関数インデックスを張る。
+
 ### 検索パフォーマンス用
 
 | テーブル | インデックス | 用途 |
@@ -1192,18 +1195,18 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | students | (university) | 大学名フィルター |
 | students | (prefecture) | 都道府県フィルター |
 | students | (academic_type) | 文理フィルター |
-| synced_interviewai_users | (email) | メール突合用 |
+| synced_interviewai_users | (LOWER(email)) | メール突合用（大文字小文字を区別せず突合するため関数インデックス） |
 | synced_interviewai_sessions | (external_user_id) | ユーザー別面接一覧 |
 | synced_interviewai_searches | (external_user_id) | ユーザー別検索履歴 |
-| synced_compai_users | (email) | メール突合用 |
+| synced_compai_users | (LOWER(email)) | メール突合用（大文字小文字を区別せず突合するため関数インデックス） |
 | synced_compai_researches | (external_user_id) | ユーザー別調査一覧 |
 | synced_compai_messages | (external_user_id) | ユーザー別質問一覧 |
 | synced_compai_messages | (external_research_id) | research別メッセージ |
-| synced_smartes_users | (email) | メール突合用 |
+| synced_smartes_users | (LOWER(email)) | メール突合用（大文字小文字を区別せず突合するため関数インデックス） |
 | synced_smartes_motivations | (external_user_id) | ユーザー別志望動機一覧 |
 | synced_smartes_gakuchika | (external_user_id) | ユーザー別ガクチカ一覧 |
 | synced_smartes_generated_es | (external_user_id) | ユーザー別AI生成ES一覧 |
-| synced_sugoshu_users | (email) | メール突合用 |
+| synced_sugoshu_users | (LOWER(email)) | メール突合用（大文字小文字を区別せず突合するため関数インデックス） |
 | synced_sugoshu_resumes | (external_user_id) | ユーザー別履歴書一覧 |
 | synced_sugoshu_diagnoses | (external_user_id) | ユーザー別診断一覧 |
 | scouts | (student_id, status) | 学生のスカウト一覧 |
@@ -1383,7 +1386,7 @@ RLS は行単位のアクセス制御のみ。カラム単位の制限や頻出 
 
 #### Phase B: 学生の同意（UIアクション）
 
-学生がスカウトサービスに登録後、連携画面で `synced_*_users` のemailと突合し、利用中のプロダクトを表示。学生が同意すると `student_product_links` を作成し、既に同期済みのデータがJOIN可能になる。
+学生がスカウトサービスに登録後、連携画面で `synced_*_users` のemailと突合し、利用中のプロダクトを表示。学生が同意すると `student_product_links` を作成し、`students.data_consent_granted_at` を更新する。同意は学生単位（プロダクトごとではない）であり、一度同意すれば既に同期済みの全データがJOIN可能になる。
 
 ```
 学生がログイン
@@ -1392,10 +1395,10 @@ RLS は行単位のアクセス制御のみ。カラム単位の制限や頻出 
     → 学生が同意
                                     │
                                     ▼
-                     ┌──────────────────────────┐
-                     │   student_product_links   │
-                     │  + data_consent_granted_at │
-                     └──────────────────────────┘
+        ┌────────────────────────────────────────────┐
+        │  students.data_consent_granted_at = now()  │ ← 学生単位の同意フラグ
+        │  student_product_links を各プロダクト分INSERT │ ← プロダクト紐付け
+        └────────────────────────────────────────────┘
                                     │
               student_product_links.external_user_id で
               synced_* テーブルの既存データとJOIN可能に

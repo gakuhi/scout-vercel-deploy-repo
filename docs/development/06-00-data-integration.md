@@ -171,64 +171,167 @@ Vercel Cron（毎15分）
 
 ## 4. 取得データ詳細
 
-### 4.1 面接練習AI
+スキーマ定義の正は [03-00-schema.md](./03-00-schema.md) のテーブル詳細セクション。本節は **どのソースカラムをどの synced_* カラムに入れるか** のマッピング表。
 
-**元テーブル**: `interview_sessions`
+### 4.1 面接練習AI（interviewai）
 
-| 取得フィールド | synced_* カラム | マッチングでの用途 |
+**元テーブル**: `users` + `user_profiles`, `interview_sessions` + `companies`, `user_company_searches` + `companies`
+
+#### → `synced_interviewai_users`
+
+| 元カラム | synced_* カラム | 用途 |
 |---|---|---|
-| `evaluation_data.overallScore` | `skill_scores.overallScore` | 面接力の定量指標 |
-| `evaluation_data.categories.logicalStructure.score` | `skill_scores.logicalStructure` | 論理構成力 |
-| `evaluation_data.categories.qaSkill.score` | `skill_scores.qaSkill` | 質疑応答力 |
-| `evaluation_data.categories.responseContent.score` | `skill_scores.responseContent` | 回答内容の質 |
-| `evaluation_data.strengths` | `summary` に含める | 人物像の定性評価 |
-| `evaluation_data.areasForImprovement` | `summary` に含める | |
-| `interview_type.industry` | `session_type` | 志望業界シグナル |
-| `interview_type.phase` | `summary` に含める | 就活の進捗度 |
-| セッション数（COUNT） | 集計 | 行動量・本気度 |
+| `users.id` | `external_user_id` | 突合キー |
+| `users.email` | `email` | メール突合 |
+| `users.created_at` | `original_created_at` | |
 
-**取得しないデータ**:
-- `conversation_text.transcripts` — 1人最大 ~42,000トークン。`evaluation_data` で代替可能
-- `generative_ai_config` — システム設定情報。マッチングに無関係
+#### → `synced_interviewai_sessions`（`interview_sessions` ⨝ `companies`）
 
-### 4.2 企業分析AI
-
-**元テーブル**: `researches`, `research_messages`
-
-| 取得フィールド | synced_* カラム | マッチングでの用途 |
+| 元カラム | synced_* カラム | マッチングでの用途 |
 |---|---|---|
-| `researches.title`（企業名・トピック） | `title` | 調べた企業 = 興味の方向性 |
-| `researches.content`（AI分析結果） | `content` | 業界理解度 |
+| `interview_sessions.id` | `external_session_id` | |
+| `interview_sessions.user_id` | `external_user_id` | 突合キー |
+| `companies.name`（JOIN） | `company_name` | 志望企業の傾向 |
+| `interview_type.type` | `session_type` | 個人/集団/GD |
+| `interview_type.industry` | `industry` | 志望業界シグナル |
+| `interview_type.phase` | `phase` | 就活の進捗度 |
+| `evaluation_data.overallScore` | `overall_score` (INT) | 面接力の定量指標 |
+| `evaluation_data.categories.*.score` | `skill_scores` (JSONB) | カテゴリ別スコア（logicalStructure / qaSkill / responseContent） |
+| `evaluation_data.strengths` | `strengths` (JSONB) | 強み |
+| `evaluation_data.areasForImprovement` | `areas_for_improvement` (JSONB) | 改善点 |
+| `evaluation_data.growthHint` | `growth_hint` | 成長アドバイス |
+| `conversation_text` | `conversation_text` (JSONB) | 会話トランスクリプト |
+| `interview_sessions.started_at` | `started_at` | |
+| `interview_sessions.created_at` | `original_created_at` | |
+
+**取得しないデータ**: `generative_ai_config`（システム設定。マッチングに無関係）
+
+#### → `synced_interviewai_searches`（`user_company_searches` ⨝ `companies`）
+
+| 元カラム | synced_* カラム | 用途 |
+|---|---|---|
+| `user_company_searches.id` | `external_search_id` | |
+| `user_company_searches.user_id` | `external_user_id` | 突合キー |
+| `companies.name`（JOIN） | `company_name` | 興味のある企業 |
+| `user_company_searches.created_at` | `searched_at` | |
+
+### 4.2 企業分析AI（compai）
+
+**元テーブル**: `profiles`, `researches`, `research_messages`
+
+#### → `synced_compai_users`
+
+| 元カラム | synced_* カラム | 用途 |
+|---|---|---|
+| `profiles.id` | `external_user_id` | 突合キー |
+| `profiles.email` | `email` | メール突合 |
+| `profiles.created_at` | `original_created_at` | |
+
+#### → `synced_compai_researches`
+
+| 元カラム | synced_* カラム | マッチングでの用途 |
+|---|---|---|
+| `researches.id` | `external_research_id` | |
+| `researches.user_id` | `external_user_id` | 突合キー |
+| `researches.title` | `title` | 調べた企業・トピック |
 | `researches.url` | `url` | |
-| `research_messages.content`（user の質問） | 集計して取得 | 就活の軸（年収？成長性？人物像？） |
-| リサーチ数（COUNT） | 集計 | 行動量 |
+| `researches.content` | `content` | AI分析結果 |
+| `researches.raw_content` | `raw_content` | 元の生データ |
+| `researches.citations` | `citations` (JSONB) | 引用元 |
+| `researches.is_bookmarked` | `is_bookmarked` | |
+| `researches.status` | `status` | |
+| `researches.created_at` | `original_created_at` | |
 
-**取得しないデータ**:
-- `research_messages` の全文（1人あたり最大 ~60,000文字）— 企業名・業界リストと質問傾向のみ取得
+**取得しないデータ**: `perplexity_id`, `model`, `tokens_used`, `plan_tier`（システム内部情報）、`deleted_at IS NOT NULL` のレコードはETLで除外
 
-### 4.3 スマートES
+#### → `synced_compai_messages`
 
-**元テーブル**: `users_bookmarks_es`, `users_generated_applicant_motivations`
-
-| 取得フィールド | synced_* カラム | マッチングでの用途 |
+| 元カラム | synced_* カラム | 用途 |
 |---|---|---|
-| ES本文 | `answer` | 自己PR・ガクチカの言語化 |
-| 企業名・業界 | `company_name`, `industry` | 志望先の傾向 |
-| 選考種別 | `selection_type` | |
-| 志望動機テキスト | `question_content` / `answer` | 何を重視しているか |
-| 生成・再生成回数 | 集計 | 推敲の深さ |
+| `research_messages.id` | `external_message_id` | |
+| `research_messages.research_id` | `external_research_id` | research紐付け |
+| `researches.user_id`（JOIN） | `external_user_id` | 突合キー |
+| `research_messages.content` | `content` | 質問内容 |
+| `research_messages.role` | `sender_type` | user / assistant |
+| `research_messages.created_at` | `original_created_at` | |
 
-### 4.4 すごい就活
+**取得しないデータ**: `model`, `tokens_used`（システム内部情報）、`feedback`（UI用フィードバック）
 
-**元テーブル**: `UserProfile`, `ResumeDraft`, `UserDiagnosisSession`, `SessionScoreEasy/Official`, `CMQuestion`
+### 4.3 スマートES（smartes）
 
-| 取得フィールド | synced_* カラム | マッチングでの用途 |
+**元テーブル**: `user`, `users_generated_applicant_motivations`, `users_generated_gakuchika`, `users_generated_es`
+
+⚠️ ETL で `user.email IS NULL` のレコードは除外する（LINE認証のみのユーザーは突合不可）。
+
+#### → `synced_smartes_users`
+
+| 元カラム | synced_* カラム | 用途 |
 |---|---|---|
-| 氏名・大学・卒年度 | `students` の基本情報補完 | 属性フィルター |
-| 履歴書内容 | `synced_activities.notes` | 自己PR等 |
-| 診断結果 | `synced_activities.notes` | 自己理解 |
-| SPI模試スコア | `synced_activities.notes` | 基礎学力指標 |
-| 相談室の質問 | `synced_activities.event_name` | 就活の悩み・関心事 |
+| `user.id` | `external_user_id` | 突合キー |
+| `user.email` | `email` | メール突合 |
+| `user.created_at` | `original_created_at` | |
+
+#### → `synced_smartes_motivations`
+
+| 元カラム | synced_* カラム | マッチングでの用途 |
+|---|---|---|
+| `users_generated_applicant_motivations.applicant_motivation_id` | `external_motivation_id` | |
+| `users_generated_applicant_motivations.user_id` | `external_user_id` | 突合キー |
+| 生成パラメーター（企業名等を含む） | `generated_params` (JSONB) | 志望先の傾向 |
+| 生成本文 | `generated_text` | 志望動機の内容 |
+| 再生成回数 | `regenerated_count` | 推敲の深さ |
+| `generated_at` | `generated_at` | |
+| `created_at` | `original_created_at` | |
+
+#### → `synced_smartes_gakuchika`
+
+| 元カラム | synced_* カラム | マッチングでの用途 |
+|---|---|---|
+| `users_generated_gakuchika.gakuchika_id` | `external_gakuchika_id` | |
+| `users_generated_gakuchika.user_id` | `external_user_id` | 突合キー |
+| 生成パラメーター | `generated_params` (JSONB) | |
+| 生成元ガクチカ参照 | `original_gakuchika_list` (JSONB) | |
+| 生成本文 | `generated_text` | ガクチカの内容 |
+| 再生成回数 | `regenerated_count` | 推敲の深さ |
+
+#### → `synced_smartes_generated_es`
+
+| 元カラム | synced_* カラム | マッチングでの用途 |
+|---|---|---|
+| `users_generated_es.es_id` | `external_es_id` | |
+| `users_generated_es.user_id` | `external_user_id` | 突合キー |
+| 生成パラメーター（企業名・設問等を含む） | `generated_params` (JSONB) | 志望先・選考種別 |
+| 生成元ES参照 | `original_es_list` (JSONB) | |
+| 生成本文 | `generated_text` | ESの内容 |
+| 再生成回数 | `regenerated_count` | 推敲の深さ |
+
+### 4.4 すごい就活（sugoshu）
+
+**元テーブル**: `user` + `user_profile`, `resumeDraft`, 診断テーブル
+
+#### → `synced_sugoshu_users`（`user` ⨝ `user_profile`）
+
+| 元カラム | synced_* カラム | 用途 |
+|---|---|---|
+| `user.id` | `external_user_id` | 突合キー |
+| `user.email` | `email` | メール突合 |
+| `user.created_at` | `original_created_at` | |
+
+#### → `synced_sugoshu_resumes`
+
+| 元カラム | synced_* カラム | マッチングでの用途 |
+|---|---|---|
+| `resumeDraft.id` | `external_resume_id` | |
+| `resumeDraft.user_id` | `external_user_id` | 突合キー |
+| `resumeDraft.content` | `content` | 履歴書内容（自己PR・ガクチカ） |
+
+#### → `synced_sugoshu_diagnoses`
+
+| 元カラム | synced_* カラム | マッチングでの用途 |
+|---|---|---|
+| 診断ID | `external_diagnosis_id` | |
+| ユーザーID | `external_user_id` | 突合キー |
+| 診断結果（SPI模試スコア・自己分析等含む） | `diagnosis_data` (JSONB) | 基礎学力・自己理解 |
 
 ---
 
@@ -244,7 +347,8 @@ Vercel Cron（毎15分）
 ```
 
 - 一致するメールアドレスがあれば `student_product_links` にレコードを作成
-- `product` カラムに `smart_es` / `company_analysis` / `interview_ai` / `sugokatsu` を記録
+- `product` カラムに `interviewai` / `compai` / `smartes` / `sugoshu` を記録（`product_source` enum）
+- `synced_*` テーブル prefix・Route Handler パスと同じ命名で統一
 - 1人の学生が複数プロダクトにリンクされる
 
 ### 誤連携の防止
