@@ -6,7 +6,7 @@
 
 - **DBMS**: PostgreSQL（Supabase）
 - **認証**: Supabase Auth
-- **テーブル数**: 30（アプリ固有） + Supabase管理テーブル
+- **テーブル数**: 31（アプリ固有） + Supabase管理テーブル
 
 ---
 
@@ -101,6 +101,7 @@ flowchart TB
 
     subgraph student["学生"]
         students
+        mbti_types
         student_product_links
         student_integrated_profiles
     end
@@ -211,11 +212,20 @@ erDiagram
         text street
         text profile_image_url
         text bio
+        uuid mbti_type_id FK
         boolean is_profile_public
         timestamptz data_consent_granted_at
         timestamptz deleted_at
         timestamptz created_at
         timestamptz updated_at
+    }
+
+    mbti_types {
+        uuid id PK
+        text type_code "UNIQUE"
+        text name_ja
+        text name_en
+        timestamptz created_at
     }
 
     companies {
@@ -597,6 +607,7 @@ erDiagram
     }
 
     %% ===== リレーション =====
+    mbti_types ||--o{ students : "mbti_type_id"
     students ||--o{ student_product_links : "links"
     student_product_links ||--o| synced_interviewai_users : "external_user_id"
     student_product_links ||--o{ synced_interviewai_sessions : "external_user_id"
@@ -657,6 +668,20 @@ erDiagram
 
 ## テーブル詳細
 
+### mbti_types — MBTIマスターデータ
+
+16種類のMBTI性格タイプのマスターテーブル。`students.mbti_type_id` から参照される。
+
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | UUID | PK, DEFAULT gen_random_uuid() | |
+| type_code | TEXT | NOT NULL, UNIQUE | MBTIタイプコード（例: 'INTJ', 'ENFP'） |
+| name_ja | TEXT | NOT NULL | 日本語名（例: '建築家'） |
+| name_en | TEXT | NOT NULL | 英語名（例: 'Architect'） |
+| created_at | TIMESTAMPTZ | DEFAULT now() | |
+
+初期データとして16タイプ（INTJ, INTP, ENTJ, ENTP, INFJ, INFP, ENFJ, ENFP, ISTJ, ISFJ, ESTJ, ESFJ, ISTP, ISFP, ESTP, ESFP）を投入する。
+
 ### 1. students — 学生統合プロフィール
 
 学生の基本情報を一元管理する。`id` は Supabase Auth の `auth.users(id)` と一致。
@@ -684,6 +709,7 @@ erDiagram
 | profile_image_url | TEXT | | プロフィール画像 |
 | bio | TEXT | | 自己紹介文 |
 | is_profile_public | BOOLEAN | DEFAULT false | 企業への公開フラグ |
+| mbti_type_id | UUID | FK → mbti_types(id) | MBTI診断タイプ |
 | data_consent_granted_at | TIMESTAMPTZ | | データ連携同意日時 |
 | deleted_at | TIMESTAMPTZ | | 論理削除日時（30日後に物理削除） |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
@@ -1195,6 +1221,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | students | (university) | 大学名フィルター |
 | students | (prefecture) | 都道府県フィルター |
 | students | (academic_type) | 文理フィルター |
+| students | (mbti_type_id) | MBTIフィルター |
 | synced_interviewai_users | (LOWER(email)) | メール突合用（大文字小文字を区別せず突合するため関数インデックス） |
 | synced_interviewai_sessions | (external_user_id) | ユーザー別面接一覧 |
 | synced_interviewai_searches | (external_user_id) | ユーザー別検索履歴 |
@@ -1301,6 +1328,7 @@ RLS は行単位のアクセス制御のみ。カラム単位の制限や頻出 
 | テーブル | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
 | students | 自分のレコードのみ | 自分のIDで作成 | 自分のレコードのみ | — |
+| mbti_types | 認証済みユーザー全員が閲覧可 | — | — | — |
 | synced_* | 自分のレコードのみ | — (ETLのみ) | — | — |
 | student_integrated_profiles | 自分のレコードのみ | — (APIのみ) | — | — |
 | scouts | 自分宛のみ | — | status, read_at, responded_at のみ | — |
