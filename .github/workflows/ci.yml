@@ -22,6 +22,9 @@ jobs:
 
   ci:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -31,7 +34,13 @@ jobs:
       - run: npm ci
       - run: npm audit --audit-level=critical
       - run: npm run lint
-      - run: npm run test
+      - run: npm run test:coverage
+      - name: Coverage Report on PR
+        uses: davelosert/vitest-coverage-report-action@v2
+        if: always()
+        with:
+          json-summary-path: ./coverage/coverage-summary.json
+          json-final-path: ./coverage/coverage-final.json
       - run: npx playwright install --with-deps chromium
       - run: npm run build
         env:
