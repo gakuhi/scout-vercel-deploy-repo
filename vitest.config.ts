@@ -19,6 +19,7 @@ export default defineConfig({
         "src/shared/types/**",
         "src/test/**",
       ],
+      // @ts-ignore -- all/include are valid v8 runtime options but missing from Vitest v4 types
       all: true,
       include: ["src/**/*.{ts,tsx}"],
       // Phase 1: 15/15/15 → Phase 2: 30/30/20 → Phase 3: 50/50/35 → Phase 4: 70/70/50
