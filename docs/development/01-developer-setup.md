@@ -486,13 +486,57 @@ PR 作成時に自動でテンプレートが表示される（`.github/pull_req
 | `npm run build` | 本番ビルド |
 | `npm run lint` | ESLint によるコードチェック |
 | `npm run test` | Vitest によるユニットテスト |
+| `npm run test:coverage` | ユニットテスト + カバレッジレポート出力 |
 | `npm run test:e2e` | Playwright による E2E テスト |
 | `npm run test:e2e:ui` | E2E テスト（UI モード・デバッグ用） |
 | `npm run format` | Prettier によるコードフォーマット |
 
 ---
 
-## 11. トラブルシューティング
+## 11. テストカバレッジ
+
+CI（GitHub Actions）で PR ごとにテストカバレッジを計測し、閾値を下回ると CI が失敗する。PR にはカバレッジレポートが自動コメントされる。
+
+### カバレッジ指標
+
+| 指標 | 意味 | 例 |
+|---|---|---|
+| **Lines** | テストで実行された**コード行**の割合 | 10行中7行通過 → 70% |
+| **Functions** | 1回でも呼び出された**関数**の割合 | 関数が5個中3個呼ばれた → 60% |
+| **Branches** | `if/else` 等の**分岐**が両方通過された割合 | if の true 側しかテストなし → 50% |
+
+### 現在の閾値
+
+`vitest.config.ts` で設定。テストが増えたら段階的に引き上げる。
+
+| Phase | Lines | Functions | Branches | タイミング |
+|---|---|---|---|---|
+| **1（現在）** | 15% | 15% | 15% | 初期導入 |
+| 2 | 30% | 30% | 20% | `src/lib/line/` テスト追加後 |
+| 3 | 50% | 50% | 35% | auth schemas 等のテスト追加後 |
+| 4 | 70% | 70% | 50% | 3ヶ月後目安 |
+
+### ローカルでの確認
+
+```bash
+# カバレッジレポートを出力（テキスト + HTML）
+npm run test:coverage
+
+# HTML レポートをブラウザで確認（ファイル単位で未カバー行が見える）
+open coverage/index.html
+```
+
+### カバレッジ対象外
+
+以下は `vitest.config.ts` で除外済み。ルートハンドラは E2E テスト（Playwright）でカバーする。
+
+- `src/app/**` — Next.js ルートハンドラ・ページコンポーネント
+- `src/shared/types/**` — 自動生成の型定義
+- `src/test/**` — テストユーティリティ
+
+---
+
+## 12. トラブルシューティング
 
 | 問題 | 対処法 |
 |---|---|

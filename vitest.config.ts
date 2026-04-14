@@ -8,14 +8,25 @@ export default defineConfig({
     exclude: ["node_modules", "e2e"],
     coverage: {
       provider: "v8",
-      reporter: ["text", "html"],
+      reporter: ["text", "html", "json-summary", "json"],
       exclude: [
         "node_modules/",
         ".next/",
         "*.config.*",
         "src/instrumentation*",
         "sentry.*",
+        "src/app/**",
+        "src/shared/types/**",
+        "src/test/**",
       ],
+      all: true,
+      include: ["src/**/*.{ts,tsx}"],
+      // Phase 1: 15/15/15 → Phase 2: 30/30/20 → Phase 3: 50/50/35 → Phase 4: 70/70/50
+      thresholds: {
+        lines: 15,
+        functions: 15,
+        branches: 15,
+      },
     },
   },
   resolve: {
