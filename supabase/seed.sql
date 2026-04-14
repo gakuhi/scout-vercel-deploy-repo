@@ -33,10 +33,10 @@ VALUES
   (gen_random_uuid(), '55555555-5555-5555-5555-555555555555', '55555555-5555-5555-5555-555555555555', '{"sub": "55555555-5555-5555-5555-555555555555", "email": "owner@unverified-corp.com"}', 'email', now(), now(), now());
 
 -- ----- companies -----
-INSERT INTO companies (id, name, industry, is_public, is_verified, verified_at, created_at)
+INSERT INTO companies (id, name, industry, is_verified, verified_at, created_at)
 VALUES
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '審査済み株式会社', 'IT', true, true, now(), now()),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '未審査株式会社', 'メーカー', false, false, NULL, now());
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '審査済み株式会社', 'IT', true, now(), now()),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '未審査株式会社', 'メーカー', false, NULL, now());
 
 -- ----- students -----
 INSERT INTO students (id, email, last_name, first_name, university, faculty, academic_type, graduation_year, prefecture, is_profile_public, bio, created_at)
@@ -45,16 +45,16 @@ VALUES
   ('22222222-2222-2222-2222-222222222222', 'student-b@test.com', '佐藤', '花子', '京都大学', '文学部', 'liberal_arts', 2027, '京都府', false, '日本文学を研究中', now());
 
 -- ----- company_members -----
-INSERT INTO company_members (id, company_id, email, last_name, first_name, is_active, created_at)
+INSERT INTO company_members (id, company_id, email, last_name, first_name, role, is_active, created_at)
 VALUES
-  ('33333333-3333-3333-3333-333333333333', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'owner@verified-corp.com', '鈴木', '一郎', true, now()),
-  ('44444444-4444-4444-4444-444444444444', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'member@verified-corp.com', '高橋', '次郎', true, now()),
-  ('55555555-5555-5555-5555-555555555555', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'owner@unverified-corp.com', '伊藤', '三郎', true, now());
+  ('33333333-3333-3333-3333-333333333333', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'owner@verified-corp.com', '鈴木', '一郎', 'owner', true, now()),
+  ('44444444-4444-4444-4444-444444444444', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'member@verified-corp.com', '高橋', '次郎', 'member', true, now()),
+  ('55555555-5555-5555-5555-555555555555', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'owner@unverified-corp.com', '伊藤', '三郎', 'owner', true, now());
 
 -- ----- student_product_links (学生Aのみ) -----
 INSERT INTO student_product_links (student_id, product, external_user_id, linked_at)
 VALUES
-  ('11111111-1111-1111-1111-111111111111', 'smart_es', 'ext-user-001', now());
+  ('11111111-1111-1111-1111-111111111111', 'smartes', 'ext-user-001', now());
 
 -- ----- synced_es_entries (学生Aのみ) -----
 INSERT INTO synced_es_entries (student_id, company_name, industry, question_content, answer, synced_at)
@@ -114,7 +114,7 @@ VALUES
   ('22222222-2222-2222-2222-222222222222', true, true, true, true);
 
 -- ----- company_notification_settings -----
-INSERT INTO company_notification_settings (company_member_id, scout_accepted, chat_message, email_enabled, in_app_enabled)
+INSERT INTO company_notification_settings (company_member_id, scout_accepted, chat_message, line_enabled, in_app_enabled)
 VALUES
   ('33333333-3333-3333-3333-333333333333', true, true, true, true);
 
