@@ -56,30 +56,40 @@ INSERT INTO student_product_links (student_id, product, external_user_id, linked
 VALUES
   ('11111111-1111-1111-1111-111111111111', 'smartes', 'ext-user-001', now());
 
--- ----- synced_es_entries (学生Aのみ) -----
-INSERT INTO synced_es_entries (student_id, company_name, industry, question_content, answer, synced_at)
+-- ----- synced_smartes_users -----
+INSERT INTO synced_smartes_users (external_user_id, email, synced_at)
 VALUES
-  ('11111111-1111-1111-1111-111111111111', 'テスト商事', 'IT', '志望動機を教えてください', 'AIで社会課題を解決したい', now());
+  ('ext-user-001', 'student-a@test.com', now());
 
--- ----- synced_researches (学生Aのみ) -----
-INSERT INTO synced_researches (student_id, title, content, synced_at)
+-- ----- synced_smartes_generated_es (学生Aの外部ID) -----
+INSERT INTO synced_smartes_generated_es (external_user_id, external_es_id, generated_params, generated_text, regenerated_count, generated_at, synced_at)
 VALUES
-  ('11111111-1111-1111-1111-111111111111', 'テスト商事の企業分析', 'IT企業の分析結果', now());
+  ('ext-user-001', 'es-001', '{"company": "テスト商事", "question": "志望動機を教えてください"}', 'AIで社会課題を解決したい', 0, now(), now());
 
--- ----- synced_interview_sessions (学生Aのみ) -----
-INSERT INTO synced_interview_sessions (student_id, session_type, summary, synced_at)
+-- ----- synced_compai_users -----
+INSERT INTO synced_compai_users (external_user_id, email, synced_at)
 VALUES
-  ('11111111-1111-1111-1111-111111111111', '個人面接', '論理的に回答できていた', now());
+  ('ext-compai-001', 'student-a@test.com', now());
 
--- ----- synced_activities (学生Aのみ) -----
-INSERT INTO synced_activities (student_id, event_name, applied_at, synced_at)
+-- ----- synced_compai_researches (学生Aの外部ID) -----
+INSERT INTO synced_compai_researches (external_user_id, external_research_id, title, content, status, synced_at)
 VALUES
-  ('11111111-1111-1111-1111-111111111111', 'テスト商事 夏インターン', now(), now());
+  ('ext-compai-001', 'research-001', 'テスト商事の企業分析', 'IT企業の分析結果', 'completed', now());
+
+-- ----- synced_interviewai_users -----
+INSERT INTO synced_interviewai_users (external_user_id, email, synced_at)
+VALUES
+  ('ext-interview-001', 'student-a@test.com', now());
+
+-- ----- synced_interviewai_sessions (学生Aの外部ID) -----
+INSERT INTO synced_interviewai_sessions (external_user_id, external_session_id, session_type, overall_score, skill_scores, synced_at)
+VALUES
+  ('ext-interview-001', 'session-001', '個人面接', 75, '{"logicalStructure": 80, "qaSkill": 70, "responseContent": 75}', now());
 
 -- ----- student_integrated_profiles (学生Aのみ) -----
 INSERT INTO student_integrated_profiles (student_id, summary, strengths, interests, skills, preferred_work_locations, activity_level, generated_at, model_version)
 VALUES
-  ('11111111-1111-1111-1111-111111111111', 'AI技術に関心が高く行動力のある学生', '["論理的思考", "プログラミング"]', '["IT", "AI"]', '["Python", "機械学習"]', '["東京", "大阪"]', 'active', now(), 'claude-sonnet-4-20250514');
+  ('11111111-1111-1111-1111-111111111111', 'AI技術に関心が高く行動力のある学生', '["論理的思考", "プログラミング"]', '["IT", "AI"]', '["Python", "機械学習"]', '["東京", "大阪"]', 'high', now(), 'claude-sonnet-4-6');
 
 -- ----- job_postings -----
 INSERT INTO job_postings (id, company_id, created_by, title, description, job_category, is_published, published_at, created_at)

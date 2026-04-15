@@ -40,7 +40,7 @@ Supabase が自動管理するテーブル。直接 CREATE/ALTER しないが、
 |---|---|---|
 | id | UUID | PK。students / company_members の id と一致 |
 | email | TEXT | ログイン用メールアドレス |
-| raw_app_meta_data | JSONB | `role` フィールドにユーザー種別（`student` / `company_owner` / `company_admin` / `company_member`）を格納。RLS ポリシーで `auth.jwt()->>'role'` として参照 |
+| raw_app_meta_data | JSONB | `role` フィールドにユーザー種別（`student` / `company_owner` / `company_member`）を格納。RLS ポリシーで `auth.jwt()->>'role'` として参照 |
 | raw_user_meta_data | JSONB | サインアップ時のメタデータ（氏名等）。LINE連携時は LINE プロフィール情報が自動格納される |
 | created_at | TIMESTAMPTZ | アカウント作成日時 |
 | updated_at | TIMESTAMPTZ | |
@@ -70,7 +70,7 @@ LINE連携・マジックリンク等の認証プロバイダー情報。1ユー
 
 ### auth.mfa_factors / auth.mfa_challenges — MFA 管理
 
-企業 owner/admin に必須の TOTP MFA の登録・認証チャレンジ情報。
+企業 owner に必須の TOTP MFA の登録・認証チャレンジ情報。
 
 ### auth.flow_state — 認証フロー状態
 
@@ -254,7 +254,7 @@ erDiagram
         text email
         text last_name
         text first_name
-        company_member_role role "owner / admin / member"
+        company_member_role role "owner / member"
         boolean is_active
         timestamptz created_at
         timestamptz updated_at
@@ -425,7 +425,7 @@ erDiagram
         jsonb interests
         jsonb skills
         jsonb preferred_work_locations
-        text activity_level
+        activity_level activity_level
         timestamptz generated_at
         text model_version
     }
@@ -653,8 +653,8 @@ erDiagram
 
 | Enum | 値 | 説明 |
 |---|---|---|
-| `user_role` | `student`, `company_owner`, `company_admin`, `company_member` | ユーザー種別（auth.users の raw_app_meta_data.role に格納） |
-| `company_member_role` | `owner`, `admin`, `member` | 企業内ロール（company_members.role に格納） |
+| `user_role` | `student`, `company_owner`, `company_member` | ユーザー種別（auth.users の raw_app_meta_data.role に格納） |
+| `company_member_role` | `owner`, `member` | 企業内ロール（company_members.role に格納） |
 | `product_source` | `interviewai`, `compai`, `smartes`, `sugoshu` | 連携元プロダクト。`synced_*` テーブル prefix・ETL Route Handler パスと一致させる |
 | `scout_status` | `sent`, `read`, `accepted`, `declined`, `expired` | スカウトの状態遷移 |
 | `academic_type` | `liberal_arts`, `science`, `other` | 文理区分 |
@@ -663,6 +663,7 @@ erDiagram
 | `event_organizer_type` | `company`, `platform` | イベント主催者種別 |
 | `event_format` | `online`, `offline`, `hybrid` | イベント開催形式 |
 | `event_registration_status` | `applied`, `confirmed`, `cancelled`, `attended` | イベント参加ステータス |
+| `activity_level` | `low`, `medium`, `high`, `very_high` | 就活活動量（student_integrated_profiles.activity_level に格納） |
 
 ---
 
@@ -748,7 +749,7 @@ erDiagram
 | email | TEXT | NOT NULL | |
 | last_name | TEXT | | 姓 |
 | first_name | TEXT | | 名 |
-| role | company_member_role | DEFAULT 'member' | `owner` / `admin` / `member` |
+| role | company_member_role | DEFAULT 'member' | `owner` / `member` |
 | is_active | BOOLEAN | DEFAULT true | アカウント有効フラグ |
 | created_at | TIMESTAMPTZ | DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | DEFAULT now() | |
@@ -889,7 +890,7 @@ erDiagram
 |---|---|---|---|
 | id | UUID | PK, DEFAULT gen_random_uuid() | |
 | external_user_id | TEXT | NOT NULL | スマートES側の user_id |
-| external_motivation_id | TEXT | NOT NULL | 元テーブルの `applicant_motivation_id` |
+| external_motivation_id | TEXT | NOT NULL, UNIQUE | 元テーブルの `applicant_motivation_id` |
 | generated_params | JSONB | | 生成時のパラメーター（企業名等を含む） |
 | generated_text | TEXT | | 生成された志望動機の本文 |
 | regenerated_count | INT | | 再生成回数（推敲の深さ） |
@@ -905,7 +906,7 @@ erDiagram
 |---|---|---|---|
 | id | UUID | PK, DEFAULT gen_random_uuid() | |
 | external_user_id | TEXT | NOT NULL | スマートES側の user_id |
-| external_gakuchika_id | TEXT | NOT NULL | 元テーブルの `gakuchika_id` |
+| external_gakuchika_id | TEXT | NOT NULL, UNIQUE | 元テーブルの `gakuchika_id` |
 | generated_params | JSONB | | 生成時のパラメーター |
 | original_gakuchika_list | JSONB | | 生成元となったガクチカの参照一覧 |
 | generated_text | TEXT | | 生成されたガクチカの本文 |
@@ -922,7 +923,7 @@ erDiagram
 |---|---|---|---|
 | id | UUID | PK, DEFAULT gen_random_uuid() | |
 | external_user_id | TEXT | NOT NULL | スマートES側の user_id |
-| external_es_id | TEXT | NOT NULL | 元テーブルの `es_id` |
+| external_es_id | TEXT | NOT NULL, UNIQUE | 元テーブルの `es_id` |
 | generated_params | JSONB | | 生成時のパラメーター（企業名・設問等を含む） |
 | original_es_list | JSONB | | 生成元となったESの参照一覧 |
 | generated_text | TEXT | | 生成されたESの本文 |
@@ -984,7 +985,7 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | interests | JSONB | | 志望業界・企業群 |
 | skills | JSONB | | スキル評価 |
 | preferred_work_locations | JSONB | | 志望勤務先（例: ["東京", "大阪"]） |
-| activity_level | TEXT | | 就活活動量（active/moderate/low） |
+| activity_level | activity_level | | 就活活動量 |
 | generated_at | TIMESTAMPTZ | DEFAULT now() | 生成日時 |
 | model_version | TEXT | | 使用AIモデル |
 
@@ -1288,7 +1289,7 @@ RLS は行単位のアクセス制御のみ。カラム単位の制限や頻出 
 | profile_image_url | students.profile_image_url | プロフィール画像 |
 | bio | students.bio | 自己紹介文 |
 
-**抽出条件:** `is_profile_public = true` AND `deleted_at IS NULL`
+**抽出条件:** `is_profile_public = true` AND `deleted_at IS NULL` AND `data_consent_granted_at IS NOT NULL`
 
 ※ 企業担当者の RLS は `students` テーブルではなくこの View に対して設定する。スカウト承諾後に実名・連絡先を開示するフローは別途検討。
 
@@ -1313,7 +1314,7 @@ RLS は行単位のアクセス制御のみ。カラム単位の制限や頻出 
 | preferred_work_locations | student_integrated_profiles.preferred_work_locations | 志望勤務先 |
 | activity_level | student_integrated_profiles.activity_level | 就活活動量 |
 
-**抽出条件:** `is_profile_public = true` AND `deleted_at IS NULL`
+**抽出条件:** `is_profile_public = true` AND `deleted_at IS NULL` AND `data_consent_granted_at IS NOT NULL`
 
 **JOIN:** `students LEFT JOIN student_integrated_profiles ON students.id = student_integrated_profiles.student_id`（プロフィール未生成の学生も検索対象に含める）
 
@@ -1332,15 +1333,15 @@ RLS は行単位のアクセス制御のみ。カラム単位の制限や頻出 
 | synced_* | 自分のレコードのみ | — (ETLのみ) | — | — |
 | student_integrated_profiles | 自分のレコードのみ | — (APIのみ) | — | — |
 | scouts | 自分宛のみ | — | status, read_at, responded_at のみ | — |
-| companies | 全企業閲覧可 | — | — | — |
+| companies | is_verified = true の企業のみ | — | — | — |
 | job_postings | is_published = true のみ | — | — | — |
 | chat_messages | 自分が当事者のスカウトのみ | スカウト当事者 かつ status = accepted | — | — |
 | notifications | 自分宛のみ | — (Service Role のみ) | is_read, read_at のみ | — |
 | student_notification_settings | 自分のレコードのみ | 自分のstudent_idで作成 | 自分のレコードのみ | — |
 | events | 公開イベントのみ | — | — | — |
-| event_registrations | 自分の申し込みのみ | 公開イベントに申し込み | status（キャンセル）のみ | — |
+| event_registrations | 自分の申し込みのみ | 公開イベントに申し込み | status, cancelled_at のみ | — |
 
-### 企業担当者（company_owner / company_admin / company_member ロール）
+### 企業担当者（company_owner / company_member ロール）
 
 全操作の前提条件: **所属企業の `is_verified = true`**（未審査企業は学生データへのアクセス不可）
 
@@ -1348,9 +1349,9 @@ RLS は行単位のアクセス制御のみ。カラム単位の制限や頻出 
 |---|---|---|---|---|
 | public_students (View) | is_verified = true の企業のみ閲覧可 | — | — | — |
 | searchable_students (View) | is_verified = true の企業のみ閲覧可（検索用） | — | — | — |
-| synced_* | 対象学生が is_profile_public = true の場合のみ | — | — | — |
+| synced_* | — (Service Role のみ) | — | — | — |
 | scouts | 自社のスカウトのみ | 自社として送信（is_verified = true の場合のみ） | 自社のスカウトのみ | — |
-| companies | 全企業閲覧可 | — | owner/admin のみ自社を更新 | — |
+| companies | 自社のみ | — | owner のみ自社を更新 | — |
 | company_members | 自社メンバーのみ | owner のみ追加 | owner のみ更新 | owner のみ削除 |
 | saved_searches | 自分のもののみ | 作成可 | 自分のもののみ | 自分のもののみ |
 | job_postings | 自社の全求人 | 自社メンバー（is_verified = true） | 自社の求人のみ | —（論理削除） |
@@ -1358,7 +1359,7 @@ RLS は行単位のアクセス制御のみ。カラム単位の制限や頻出 
 | notifications | 自分宛のみ | — (Service Role のみ) | is_read, read_at のみ | — |
 | company_notification_settings | 自分のレコードのみ | 自分のcompany_member_idで作成 | 自分のレコードのみ | — |
 | events | 自社の全イベント + 公開中の運営イベント | 自社メンバー（is_verified = true） | 自社のイベントのみ | —（論理削除） |
-| event_registrations | 自社イベントの申し込み一覧 | — | status（確認・出席記録）のみ | — |
+| event_registrations | 自社イベントの申し込み一覧 | — | status, cancelled_at のみ | — |
 
 ### Service Role のみ（クライアントアクセス不可）
 
