@@ -10,18 +10,20 @@
 -- =============================================================
 
 -- ----- auth.users -----
-INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, email_change_token_current)
+-- GoTrue が email_change / phone_change / phone_change_token を NULL 非許容で扱うため、
+-- 空文字を明示的に設定する。設定しないとログイン API が Scan error で 500 を返す。
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, email_change_token_current, email_change, phone_change, phone_change_token)
 VALUES
   -- 学生A
-  ('11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'student-a@test.com', crypt('password123', gen_salt('bf')), now(), '{"provider": "email", "providers": ["email"], "role": "student"}', '{}', now(), now(), '', '', '', ''),
+  ('11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'student-a@test.com', crypt('password123', gen_salt('bf')), now(), '{"provider": "email", "providers": ["email"], "role": "student"}', '{}', now(), now(), '', '', '', '', '', '', ''),
   -- 学生B
-  ('22222222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'student-b@test.com', crypt('password123', gen_salt('bf')), now(), '{"provider": "email", "providers": ["email"], "role": "student"}', '{}', now(), now(), '', '', '', ''),
+  ('22222222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'student-b@test.com', crypt('password123', gen_salt('bf')), now(), '{"provider": "email", "providers": ["email"], "role": "student"}', '{}', now(), now(), '', '', '', '', '', '', ''),
   -- 審査済み企業 owner
-  ('33333333-3333-3333-3333-333333333333', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'owner@verified-corp.com', crypt('password123', gen_salt('bf')), now(), '{"provider": "email", "providers": ["email"], "role": "company_owner"}', '{}', now(), now(), '', '', '', ''),
+  ('33333333-3333-3333-3333-333333333333', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'owner@verified-corp.com', crypt('password123', gen_salt('bf')), now(), '{"provider": "email", "providers": ["email"], "role": "company_owner"}', '{}', now(), now(), '', '', '', '', '', '', ''),
   -- 審査済み企業 member
-  ('44444444-4444-4444-4444-444444444444', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'member@verified-corp.com', crypt('password123', gen_salt('bf')), now(), '{"provider": "email", "providers": ["email"], "role": "company_member"}', '{}', now(), now(), '', '', '', ''),
+  ('44444444-4444-4444-4444-444444444444', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'member@verified-corp.com', crypt('password123', gen_salt('bf')), now(), '{"provider": "email", "providers": ["email"], "role": "company_member"}', '{}', now(), now(), '', '', '', '', '', '', ''),
   -- 未審査企業 owner
-  ('55555555-5555-5555-5555-555555555555', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'owner@unverified-corp.com', crypt('password123', gen_salt('bf')), now(), '{"provider": "email", "providers": ["email"], "role": "company_owner"}', '{}', now(), now(), '', '', '', '');
+  ('55555555-5555-5555-5555-555555555555', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'owner@unverified-corp.com', crypt('password123', gen_salt('bf')), now(), '{"provider": "email", "providers": ["email"], "role": "company_owner"}', '{}', now(), now(), '', '', '', '', '', '', '');
 
 -- ----- auth.identities (Supabase Auth が要求) -----
 INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)

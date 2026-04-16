@@ -1,1 +1,114 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans:
+    var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, -apple-system,
+    sans-serif;
+  --font-headline:
+    var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: #f8f9fb;
+  --color-surface: #f8f9fb;
+  --color-surface-bright: #f8f9fb;
+  --color-surface-dim: #d9dadc;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f2f4f6;
+  --color-surface-container: #edeef0;
+  --color-surface-container-high: #e7e8ea;
+  --color-surface-container-highest: #e1e2e4;
+  --color-surface-variant: #e1e2e4;
+  --color-inverse-surface: #2e3132;
+  --color-inverse-on-surface: #f0f1f3;
+
+  --color-primary: #001f41;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #003466;
+  --color-on-primary-container: #7a9ed6;
+  --color-primary-fixed: #d5e3ff;
+  --color-primary-fixed-dim: #a6c8ff;
+  --color-on-primary-fixed: #001c3b;
+  --color-on-primary-fixed-variant: #1e477a;
+  --color-inverse-primary: #a6c8ff;
+  --color-surface-tint: #3a5f94;
+
+  --color-secondary: #48626e;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #c8e4f2;
+  --color-on-secondary-container: #4c6672;
+  --color-secondary-fixed: #cbe7f5;
+  --color-secondary-fixed-dim: #afcbd9;
+  --color-on-secondary-fixed: #011f29;
+  --color-on-secondary-fixed-variant: #304a56;
+
+  --color-tertiary: #3d0f00;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #611d00;
+  --color-on-tertiary-container: #e6815b;
+  --color-tertiary-fixed: #ffdbcf;
+  --color-tertiary-fixed-dim: #ffb59a;
+  --color-on-tertiary-fixed: #380d00;
+  --color-on-tertiary-fixed-variant: #7a2f0f;
+
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  --color-on-background: #191c1e;
+  --color-on-surface: #191c1e;
+  --color-on-surface-variant: #43474f;
+  --color-outline: #737780;
+  --color-outline-variant: #c3c6d1;
+
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-on-background);
+    -webkit-font-smoothing: antialiased;
+  }
+  .material-symbols-outlined {
+    font-family: "Material Symbols Outlined", sans-serif;
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    display: inline-block;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: normal;
+    word-wrap: normal;
+    white-space: nowrap;
+    direction: ltr;
+    -webkit-font-feature-settings: "liga";
+    font-feature-settings: "liga";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-variation-settings:
+      "FILL" 0,
+      "wght" 400,
+      "GRAD" 0,
+      "opsz" 24;
+  }
+}
+
+@layer utilities {
+  .signature-gradient {
+    background: linear-gradient(135deg, #001f41 0%, #003466 100%);
+  }
+  .signature-gradient-soft {
+    background: linear-gradient(135deg, #003466 0%, #1a4b84 100%);
+  }
+  .soft-border {
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(20px);
+  }
+}
