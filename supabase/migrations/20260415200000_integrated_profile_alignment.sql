@@ -47,6 +47,7 @@ SELECT
   s.id,
   s.university,
   s.faculty,
+  s.department,
   s.academic_type,
   s.graduation_year,
   s.prefecture,
