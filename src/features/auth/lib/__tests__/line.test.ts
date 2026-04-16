@@ -10,7 +10,7 @@ describe("line.ts", () => {
   beforeEach(() => {
     vi.stubEnv("LINE_CHANNEL_ID", "test-channel-id");
     vi.stubEnv("LINE_CHANNEL_SECRET", "test-channel-secret");
-    vi.stubEnv("LINE_REDIRECT_URI", "http://localhost:3000/api/auth/line/callback");
+    vi.stubEnv("LINE_REDIRECT_URI", "http://localhost:3000/api/auth/callback/line");
     vi.restoreAllMocks();
   });
 
@@ -27,7 +27,7 @@ describe("line.ts", () => {
       expect(url).toContain("response_type=code");
       expect(url).toContain(
         "redirect_uri=" +
-          encodeURIComponent("http://localhost:3000/api/auth/line/callback"),
+          encodeURIComponent("http://localhost:3000/api/auth/callback/line"),
       );
     });
 

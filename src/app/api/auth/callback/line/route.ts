@@ -9,7 +9,7 @@ import { AUTH_ROUTES, STUDENT_ROUTES } from "@/shared/constants/auth";
 import type { Database } from "@/shared/types/database";
 
 /**
- * GET /api/auth/line/callback
+ * GET /api/auth/callback/line
  *
  * 1. state Cookie 検証 (CSRF)
  * 2. 認可コード → トークン交換

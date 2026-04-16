@@ -34,7 +34,7 @@ describe("middleware", () => {
   it("パブリックルート（/api/auth/）は認証なしでアクセスできる", async () => {
     mockSession(null);
     const { middleware } = await import("@/middleware");
-    const response = await middleware(createRequest("/api/auth/line/callback"));
+    const response = await middleware(createRequest("/api/auth/callback/line"));
 
     expect(response.status).toBe(200);
   });

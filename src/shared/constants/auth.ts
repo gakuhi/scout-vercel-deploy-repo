@@ -8,7 +8,7 @@ export const USER_ROLES = {
 export const AUTH_ROUTES = {
   LOGIN: "/login",
   CALLBACK: "/auth/callback",
-  LINE_CALLBACK: "/api/auth/line/callback",
+  LINE_CALLBACK: "/api/auth/callback/line",
 } as const;
 
 export const STUDENT_ROUTES = {
