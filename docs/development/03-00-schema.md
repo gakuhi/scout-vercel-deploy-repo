@@ -653,11 +653,11 @@ erDiagram
 
 | Enum | 値 | 説明 |
 |---|---|---|
-| `user_role` | `student`, `company_owner`, `company_member` | ユーザー種別（auth.users の raw_app_meta_data.role に格納） |
-| `company_member_role` | `owner`, `member` | 企業内ロール（company_members.role に格納） |
+| `user_role` | `student`, `company_owner`, `company_admin`, `company_member` | ユーザー種別（auth.users の raw_app_meta_data.role に格納） |
+| `company_member_role` | `owner`, `admin`, `member` | 企業内ロール（company_members.role に格納） |
 | `product_source` | `interviewai`, `compai`, `smartes`, `sugoshu` | 連携元プロダクト。`synced_*` テーブル prefix・ETL Route Handler パスと一致させる |
 | `scout_status` | `sent`, `read`, `accepted`, `declined`, `expired` | スカウトの状態遷移 |
-| `academic_type` | `liberal_arts`, `science`, `other` | 文理区分 |
+| `academic_type` | `liberal_arts`, `science`, `arts`, `medical`, `sports`, `other` | 文理区分 |
 | `chat_sender_role` | `student`, `company_member` | チャットメッセージの送信者ロール |
 | `notification_type` | `scout_received`, `scout_accepted`, `scout_declined`, `chat_new_message`, `event_reminder`, `system_announcement` | 通知種別 |
 | `event_organizer_type` | `company`, `platform` | イベント主催者種別 |

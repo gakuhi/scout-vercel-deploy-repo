@@ -12,64 +12,9 @@ ALTER TYPE user_role ADD VALUE 'company_admin' AFTER 'company_owner';
 -- 1-2. scout_status: read を追加
 ALTER TYPE scout_status ADD VALUE 'read' AFTER 'sent';
 
--- 1-3. product_source: 値をリネーム（smart_es→smartes 等）
-ALTER TYPE product_source RENAME VALUE 'smart_es' TO 'smartes';
-ALTER TYPE product_source RENAME VALUE 'company_ai' TO 'compai';
-ALTER TYPE product_source RENAME VALUE 'interview_ai' TO 'interviewai';
-ALTER TYPE product_source RENAME VALUE 'syukatsu' TO 'sugoshu';
+-- 1-3. product_source: 初期スキーマで既にリネーム済みのため不要（削除済み）
 
--- 1-4. academic_type: 6値→3値（arts, medical, sports を削除）
--- PostgreSQL は ALTER TYPE ... DROP VALUE をサポートしないため、型を再作成する
--- academic_type カラムに依存するビューを一旦削除してから型を変更する
-DROP VIEW IF EXISTS searchable_students;
-DROP VIEW IF EXISTS public_students;
-
-ALTER TYPE academic_type RENAME TO academic_type_old;
-
-CREATE TYPE academic_type AS ENUM ('liberal_arts', 'science', 'other');
-
-ALTER TABLE students
-  ALTER COLUMN academic_type TYPE academic_type
-  USING academic_type::text::academic_type;
-
-DROP TYPE academic_type_old;
-
--- ビューを再作成
-CREATE VIEW public_students WITH (security_invoker = true) AS
-SELECT
-  s.id,
-  s.university,
-  s.faculty,
-  s.department,
-  s.academic_type,
-  s.graduation_year,
-  s.prefecture,
-  s.profile_image_url,
-  s.bio
-FROM students s
-WHERE s.is_profile_public = true
-  AND s.deleted_at IS NULL;
-
-CREATE VIEW searchable_students WITH (security_invoker = true) AS
-SELECT
-  s.id,
-  s.university,
-  s.faculty,
-  s.academic_type,
-  s.graduation_year,
-  s.prefecture,
-  s.profile_image_url,
-  s.bio,
-  sip.summary,
-  sip.strengths,
-  sip.interests,
-  sip.skills,
-  sip.preferred_work_locations,
-  sip.activity_level
-FROM students s
-LEFT JOIN student_integrated_profiles sip ON sip.student_id = s.id
-WHERE s.is_profile_public = true
-  AND s.deleted_at IS NULL;
+-- 1-4. academic_type: 初期スキーマの6値をそのまま維持（削除不要）
 
 -- 1-5. 新規 Enum: company_member_role
 CREATE TYPE company_member_role AS ENUM ('owner', 'admin', 'member');
