@@ -27,7 +27,7 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const urlErrorCode = searchParams.get("error_code");
   const urlError = urlErrorCode
-    ? (ERROR_MESSAGES[urlErrorCode] ?? searchParams.get("error_description"))
+    ? (ERROR_MESSAGES[urlErrorCode] ?? "エラーが発生しました。もう一度お試しください。")
     : null;
 
   return (

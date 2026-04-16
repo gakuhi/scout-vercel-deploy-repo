@@ -8,16 +8,11 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as EmailOtpType | null;
   const next = searchParams.get("next") ?? "/company/dashboard";
 
-  let redirectTo: URL;
-  if (next.startsWith("http")) {
-    redirectTo = new URL(next);
-  } else {
-    redirectTo = request.nextUrl.clone();
-    redirectTo.pathname = next;
-    redirectTo.searchParams.delete("token_hash");
-    redirectTo.searchParams.delete("type");
-    redirectTo.searchParams.delete("next");
-  }
+  const redirectTo = request.nextUrl.clone();
+  redirectTo.pathname = next;
+  redirectTo.searchParams.delete("token_hash");
+  redirectTo.searchParams.delete("type");
+  redirectTo.searchParams.delete("next");
 
   if (tokenHash && type) {
     const supabase = await createClient();

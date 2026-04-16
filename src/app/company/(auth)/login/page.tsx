@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { LoginForm } from "@/features/company/auth/components/login-form";
 
 export const metadata = {
@@ -40,7 +41,9 @@ export default function LoginPage() {
           </div>
         </section>
         <section className="flex-1 flex flex-col justify-center items-center p-8 md:p-16 lg:p-24 bg-surface-container-lowest">
-          <LoginForm />
+          <Suspense>
+            <LoginForm />
+          </Suspense>
         </section>
       </main>
       <div className="fixed -bottom-32 -left-32 w-96 h-96 bg-primary-container/5 rounded-full blur-[120px] pointer-events-none" />
