@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FieldLabel, Input } from "@/components/ui/input";
 import { Icon } from "@/components/ui/icon";
@@ -10,6 +11,12 @@ import {
   type LoginActionState,
 } from "@/features/company/auth/actions/login";
 
+const ERROR_MESSAGES: Record<string, string> = {
+  otp_expired:
+    "パスワードリセットリンクの有効期限が切れました。もう一度お試しください。",
+  auth_failed: "認証に失敗しました。もう一度お試しください。",
+};
+
 const initialState: LoginActionState = {};
 
 export function LoginForm() {
@@ -17,6 +24,11 @@ export function LoginForm() {
     loginAction,
     initialState,
   );
+  const searchParams = useSearchParams();
+  const urlErrorCode = searchParams.get("error_code");
+  const urlError = urlErrorCode
+    ? (ERROR_MESSAGES[urlErrorCode] ?? searchParams.get("error_description"))
+    : null;
 
   return (
     <div className="w-full max-w-md">
@@ -28,6 +40,11 @@ export function LoginForm() {
           サインイン
         </h3>
       </header>
+      {urlError && (
+        <p className="text-xs font-semibold text-error bg-error-container p-3 rounded-lg mb-6" role="alert">
+          {urlError}
+        </p>
+      )}
       <form className="space-y-6" action={formAction}>
         <div className="space-y-1.5">
           <FieldLabel htmlFor="email">メールアドレス</FieldLabel>

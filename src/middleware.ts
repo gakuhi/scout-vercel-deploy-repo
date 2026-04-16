@@ -15,6 +15,7 @@ export async function middleware(request: NextRequest) {
     "/company/login",
     "/company/forgot-password",
     "/company/reset-password",
+    "/company/confirm",
   ]);
   const isPublicAuthRoute = AUTH_PUBLIC_ROUTES.has(pathname);
   const isCompanyRoute = pathname.startsWith("/company") && !isPublicAuthRoute;

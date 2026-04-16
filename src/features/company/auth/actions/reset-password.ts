@@ -39,6 +39,9 @@ export async function resetPasswordAction(
   });
 
   if (error) {
+    if (error.code === "same_password" || error.message?.includes("same password") || error.message?.includes("different from the old")) {
+      return { error: "現在と同じパスワードには変更できません。別のパスワードを入力してください。" };
+    }
     return {
       error: "パスワードの更新に失敗しました。リンクの有効期限が切れている可能性があります。",
     };
