@@ -1,4 +1,4 @@
-import { LoginPage } from "@/features/student/login";
+import { StudentLoginPage } from "@/features/student/login";
 
 export const metadata = {
   title: "ログイン | Scout",
@@ -19,5 +19,5 @@ export default async function Login(props: {
     ? (errorMessages[searchParams.error] ?? searchParams.error)
     : undefined;
 
-  return <LoginPage error={error} />;
+  return <StudentLoginPage error={error} />;
 }
