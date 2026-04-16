@@ -23,10 +23,18 @@ describe("middleware", () => {
     vi.clearAllMocks();
   });
 
-  it("パブリックルート（/login）は認証なしでアクセスできる", async () => {
+  it("パブリックルート（/student/login）は認証なしでアクセスできる", async () => {
     mockSession(null);
     const { middleware } = await import("@/middleware");
-    const response = await middleware(createRequest("/login"));
+    const response = await middleware(createRequest("/student/login"));
+
+    expect(response.status).toBe(200);
+  });
+
+  it("パブリックルート（/company/login）は認証なしでアクセスできる", async () => {
+    mockSession(null);
+    const { middleware } = await import("@/middleware");
+    const response = await middleware(createRequest("/company/login"));
 
     expect(response.status).toBe(200);
   });
@@ -34,27 +42,37 @@ describe("middleware", () => {
   it("パブリックルート（/api/auth/）は認証なしでアクセスできる", async () => {
     mockSession(null);
     const { middleware } = await import("@/middleware");
-    const response = await middleware(createRequest("/api/auth/callback/line"));
+    const response = await middleware(createRequest("/api/student/auth/line"));
 
     expect(response.status).toBe(200);
   });
 
-  it("ログイン済みユーザーが /login にアクセスするとダッシュボードにリダイレクトされる", async () => {
+  it("ログイン済み学生が /student/login にアクセスするとダッシュボードにリダイレクトされる", async () => {
     mockSession({ app_metadata: { role: "student" } });
     const { middleware } = await import("@/middleware");
-    const response = await middleware(createRequest("/login"));
+    const response = await middleware(createRequest("/student/login"));
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toContain("/student/dashboard");
   });
 
-  it("未認証ユーザーが保護ルートにアクセスするとログインにリダイレクトされる", async () => {
+  it("未認証ユーザーが /student/* にアクセスすると /student/login にリダイレクトされる", async () => {
     mockSession(null);
     const { middleware } = await import("@/middleware");
     const response = await middleware(createRequest("/student/dashboard"));
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toContain("/login");
+    expect(response.headers.get("location")).toContain("/student/login");
+    expect(response.headers.get("location")).toContain("redirectTo");
+  });
+
+  it("未認証ユーザーが /company/* にアクセスすると /company/login にリダイレクトされる", async () => {
+    mockSession(null);
+    const { middleware } = await import("@/middleware");
+    const response = await middleware(createRequest("/company/dashboard"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/company/login");
     expect(response.headers.get("location")).toContain("redirectTo");
   });
 
@@ -72,6 +90,7 @@ describe("middleware", () => {
     const response = await middleware(createRequest("/student/dashboard"));
 
     expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/student/login");
     expect(response.headers.get("location")).toContain("error=unauthorized");
   });
 });

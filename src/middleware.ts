@@ -1,12 +1,16 @@
 import { updateSession } from "@/lib/supabase/middleware";
 import { NextResponse, type NextRequest } from "next/server";
-import { AUTH_ROUTES, STUDENT_ROUTES, USER_ROLES } from "@/shared/constants/auth";
+import {
+  AUTH_ROUTES,
+  STUDENT_ROUTES,
+  USER_ROLES,
+} from "@/shared/constants/auth";
 
 /** 認証不要、またはページ内で独自に認証チェックするルート */
 const PUBLIC_PREFIXES = [
-  AUTH_ROUTES.LOGIN,
-  AUTH_ROUTES.CALLBACK,
-  "/api/auth/",
+  AUTH_ROUTES.STUDENT_LOGIN,
+  AUTH_ROUTES.COMPANY_LOGIN,
+  "/api/student/auth/",
 ] as const;
 
 function isPublicRoute(pathname: string): boolean {
@@ -20,26 +24,34 @@ export async function middleware(request: NextRequest) {
   // --- パブリックルート ---
   if (isPublicRoute(pathname)) {
     // ログイン済みユーザーがログインページにアクセスした場合はダッシュボードへ
-    if (user && pathname.startsWith(AUTH_ROUTES.LOGIN)) {
-      return NextResponse.redirect(
-        new URL(STUDENT_ROUTES.DASHBOARD, request.url),
-      );
+    if (user) {
+      const role = user.app_metadata?.role;
+      if (pathname.startsWith(AUTH_ROUTES.STUDENT_LOGIN) && role === USER_ROLES.STUDENT) {
+        return NextResponse.redirect(
+          new URL(STUDENT_ROUTES.DASHBOARD, request.url),
+        );
+      }
     }
     return supabaseResponse;
   }
 
   // --- 認証が必要なルート ---
   if (!user) {
-    const loginUrl = new URL(AUTH_ROUTES.LOGIN, request.url);
-    loginUrl.searchParams.set("redirectTo", pathname);
-    return NextResponse.redirect(loginUrl);
+    // アクセス先に応じて適切なログインページへリダイレクト
+    const loginUrl = pathname.startsWith("/company")
+      ? AUTH_ROUTES.COMPANY_LOGIN
+      : AUTH_ROUTES.STUDENT_LOGIN;
+    const redirectUrl = new URL(loginUrl, request.url);
+    redirectUrl.searchParams.set("redirectTo", pathname);
+    return NextResponse.redirect(redirectUrl);
   }
 
-  // --- ロールチェック: /student/* は student ロールのみ ---
+  // --- ロールチェック ---
   const role = user.app_metadata?.role;
+
   if (pathname.startsWith("/student") && role !== USER_ROLES.STUDENT) {
     return NextResponse.redirect(
-      new URL(`${AUTH_ROUTES.LOGIN}?error=unauthorized`, request.url),
+      new URL(`${AUTH_ROUTES.STUDENT_LOGIN}?error=unauthorized`, request.url),
     );
   }
 
