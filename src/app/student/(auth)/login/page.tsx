@@ -1,4 +1,4 @@
-import { StudentLoginPage } from "@/features/student/login";
+import { StudentLoginPage } from "@/features/student/auth";
 
 export const metadata = {
   title: "ログイン | Scout",

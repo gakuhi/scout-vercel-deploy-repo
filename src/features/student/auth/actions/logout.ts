@@ -7,5 +7,5 @@ import { AUTH_ROUTES } from "@/shared/constants/auth";
 export async function signOut(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: "global" });
-  redirect(AUTH_ROUTES.LOGIN);
+  redirect(AUTH_ROUTES.STUDENT_LOGIN);
 }
