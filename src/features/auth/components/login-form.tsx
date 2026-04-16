@@ -92,19 +92,6 @@ export function LoginForm() {
           {!isPending && <Icon name="arrow_forward" className="text-lg" />}
         </Button>
       </form>
-      <div className="mt-12 pt-8 border-t border-surface-container">
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-secondary">
-            アカウントをお持ちでないですか？
-          </p>
-          <Link
-            href="/register"
-            className="text-xs font-bold text-primary-container hover:text-primary transition-colors"
-          >
-            新規登録リクエスト
-          </Link>
-        </div>
-      </div>
       <footer className="mt-12 flex justify-between items-center">
         <span className="text-[9px] font-bold text-outline-variant uppercase tracking-widest">
           © 2026 Executive Monograph
