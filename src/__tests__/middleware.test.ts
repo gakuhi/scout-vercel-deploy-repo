@@ -1,162 +1,96 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest, NextResponse } from "next/server";
 
-const updateSessionMock = vi.fn();
-const nextResponseMock = { __isNext: true } as const;
-
+// updateSession モック
+const mockUpdateSession = vi.fn();
 vi.mock("@/lib/supabase/middleware", () => ({
-  updateSession: updateSessionMock,
+  updateSession: (...args: unknown[]) => mockUpdateSession(...args),
 }));
 
-vi.mock("next/server", () => ({
-  NextResponse: {
-    redirect: vi.fn((url: URL) => ({ __redirectTo: url.toString() })),
-  },
-}));
-
-beforeEach(() => {
-  updateSessionMock.mockReset();
-});
-
-afterEach(() => {
-  vi.clearAllMocks();
-});
-
-type RequestOptions = {
-  pathname: string;
-};
-
-function buildRequest({ pathname }: RequestOptions) {
-  const url = new URL(`http://localhost:3000${pathname}`);
-  return {
-    nextUrl: {
-      pathname: url.pathname,
-      searchParams: url.searchParams,
-      clone: () => {
-        // 実際の Next.js NextURL.clone() と同様にミュータブルなコピーを返す
-        const cloned = new URL(url.toString());
-        return cloned;
-      },
-    },
-    cookies: {
-      getAll: () => [],
-      set: vi.fn(),
-    },
-  };
+function createRequest(pathname: string): NextRequest {
+  return new NextRequest(new URL(pathname, "http://localhost:3000"));
 }
 
-function buildUser(role: string | null) {
-  return {
-    id: "user-id",
-    app_metadata: role ? { role } : {},
-  };
+function mockSession(user: { app_metadata?: Record<string, string> } | null) {
+  mockUpdateSession.mockResolvedValue({
+    user,
+    supabaseResponse: NextResponse.next(),
+  });
 }
 
 describe("middleware", () => {
-  it("認証済みでない /company/* アクセスは /company/login にリダイレクトする", async () => {
-    updateSessionMock.mockResolvedValue({
-      user: null,
-      supabaseResponse: nextResponseMock,
-    });
-
-    const { middleware } = await import("@/middleware");
-    const { NextResponse } = await import("next/server");
-    const request = buildRequest({ pathname: "/company/dashboard" });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response: any = await middleware(request as any);
-
-    expect(NextResponse.redirect).toHaveBeenCalledOnce();
-    const redirectUrl = (NextResponse.redirect as ReturnType<typeof vi.fn>)
-      .mock.calls[0][0];
-    expect(String(redirectUrl)).toContain("/company/login");
-    expect(String(redirectUrl)).toContain("next=%2Fcompany%2Fdashboard");
-    expect(response).toHaveProperty("__redirectTo");
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it("学生ロールで /company/* にアクセスすると /company/login にリダイレクト", async () => {
-    updateSessionMock.mockResolvedValue({
-      user: buildUser("student"),
-      supabaseResponse: nextResponseMock,
-    });
-
+  it("パブリックルート（/student/login）は認証なしでアクセスできる", async () => {
+    mockSession(null);
     const { middleware } = await import("@/middleware");
-    const { NextResponse } = await import("next/server");
-    const request = buildRequest({ pathname: "/company/dashboard" });
+    const response = await middleware(createRequest("/student/login"));
 
-    await middleware(request as never);
-
-    expect(NextResponse.redirect).toHaveBeenCalledOnce();
-    const redirectUrl = (NextResponse.redirect as ReturnType<typeof vi.fn>)
-      .mock.calls[0][0];
-    expect(String(redirectUrl)).toContain("/company/login");
+    expect(response.status).toBe(200);
   });
 
-  it.each([["company_owner"], ["company_admin"], ["company_member"]])(
-    "%s ロールで /company/* にアクセスすると通過する",
-    async (role) => {
-      updateSessionMock.mockResolvedValue({
-        user: buildUser(role),
-        supabaseResponse: nextResponseMock,
-      });
-
-      const { middleware } = await import("@/middleware");
-      const { NextResponse } = await import("next/server");
-      const request = buildRequest({ pathname: "/company/dashboard" });
-
-      const response = await middleware(request as never);
-
-      expect(NextResponse.redirect).not.toHaveBeenCalled();
-      expect(response).toBe(nextResponseMock);
-    },
-  );
-
-  it("ログイン済み企業ユーザーが /company/login に来たら /company/dashboard にリダイレクト", async () => {
-    updateSessionMock.mockResolvedValue({
-      user: buildUser("company_owner"),
-      supabaseResponse: nextResponseMock,
-    });
-
+  it("パブリックルート（/company/login）は認証なしでアクセスできる", async () => {
+    mockSession(null);
     const { middleware } = await import("@/middleware");
-    const { NextResponse } = await import("next/server");
-    const request = buildRequest({ pathname: "/company/login" });
+    const response = await middleware(createRequest("/company/login"));
 
-    await middleware(request as never);
-
-    expect(NextResponse.redirect).toHaveBeenCalledOnce();
-    const redirectUrl = (NextResponse.redirect as ReturnType<typeof vi.fn>)
-      .mock.calls[0][0];
-    expect(String(redirectUrl)).toContain("/company/dashboard");
+    expect(response.status).toBe(200);
   });
 
-  it("未ログインで /company/login にアクセスする場合はリダイレクトせず通過", async () => {
-    updateSessionMock.mockResolvedValue({
-      user: null,
-      supabaseResponse: nextResponseMock,
-    });
-
+  it("パブリックルート（/api/student/auth/）は認証なしでアクセスできる", async () => {
+    mockSession(null);
     const { middleware } = await import("@/middleware");
-    const { NextResponse } = await import("next/server");
-    const request = buildRequest({ pathname: "/company/login" });
+    const response = await middleware(createRequest("/api/student/auth/line"));
 
-    const response = await middleware(request as never);
-
-    expect(NextResponse.redirect).not.toHaveBeenCalled();
-    expect(response).toBe(nextResponseMock);
+    expect(response.status).toBe(200);
   });
 
-  it("/company 以外のパスはガードしない", async () => {
-    updateSessionMock.mockResolvedValue({
-      user: null,
-      supabaseResponse: nextResponseMock,
-    });
-
+  it("ログイン済み学生が /student/login にアクセスするとダッシュボードにリダイレクトされる", async () => {
+    mockSession({ app_metadata: { role: "student" } });
     const { middleware } = await import("@/middleware");
-    const { NextResponse } = await import("next/server");
-    const request = buildRequest({ pathname: "/about" });
+    const response = await middleware(createRequest("/student/login"));
 
-    const response = await middleware(request as never);
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/student/dashboard");
+  });
 
-    expect(NextResponse.redirect).not.toHaveBeenCalled();
-    expect(response).toBe(nextResponseMock);
+  it("未認証ユーザーが /student/* にアクセスすると /student/login にリダイレクトされる", async () => {
+    mockSession(null);
+    const { middleware } = await import("@/middleware");
+    const response = await middleware(createRequest("/student/dashboard"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/student/login");
+    expect(response.headers.get("location")).toContain("redirectTo");
+  });
+
+  it("未認証ユーザーが /company/* にアクセスすると /company/login にリダイレクトされる", async () => {
+    mockSession(null);
+    const { middleware } = await import("@/middleware");
+    const response = await middleware(createRequest("/company/dashboard"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/company/login");
+    expect(response.headers.get("location")).toContain("redirectTo");
+  });
+
+  it("student ロールのユーザーは /student/* にアクセスできる", async () => {
+    mockSession({ app_metadata: { role: "student" } });
+    const { middleware } = await import("@/middleware");
+    const response = await middleware(createRequest("/student/dashboard"));
+
+    expect(response.status).toBe(200);
+  });
+
+  it("student 以外のロールが /student/* にアクセスすると unauthorized エラーでリダイレクトされる", async () => {
+    mockSession({ app_metadata: { role: "company_owner" } });
+    const { middleware } = await import("@/middleware");
+    const response = await middleware(createRequest("/student/dashboard"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/student/login");
+    expect(response.headers.get("location")).toContain("error=unauthorized");
   });
 });

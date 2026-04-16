@@ -1,47 +1,62 @@
-import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { NextResponse, type NextRequest } from "next/server";
+import {
+  AUTH_ROUTES,
+  STUDENT_ROUTES,
+  USER_ROLES,
+} from "@/shared/constants/auth";
 
-const COMPANY_ROLES = new Set([
-  "company_owner",
-  "company_admin",
-  "company_member",
-]);
+/** 認証不要、またはページ内で独自に認証チェックするルート */
+const PUBLIC_PREFIXES = [
+  AUTH_ROUTES.STUDENT_LOGIN,
+  AUTH_ROUTES.COMPANY_LOGIN,
+  "/api/student/auth/",
+  "/company/forgot-password",   // ← 追加
+  "/company/reset-password",    // ← 追加
+  "/company/confirm",           // ← 追加
+] as const;
+
+
+function isPublicRoute(pathname: string): boolean {
+  return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
 
 export async function middleware(request: NextRequest) {
   const { user, supabaseResponse } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
-  const AUTH_PUBLIC_ROUTES = new Set([
-    "/company/login",
-    "/company/forgot-password",
-    "/company/reset-password",
-    "/company/confirm",
-  ]);
-  const isPublicAuthRoute = AUTH_PUBLIC_ROUTES.has(pathname);
-  const isCompanyRoute = pathname.startsWith("/company") && !isPublicAuthRoute;
-
-  if (isCompanyRoute) {
-    if (!user) {
-      const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/company/login";
-      loginUrl.searchParams.set("next", pathname);
-      return NextResponse.redirect(loginUrl);
+  // --- パブリックルート ---
+  if (isPublicRoute(pathname)) {
+    // ログイン済みユーザーがログインページにアクセスした場合はダッシュボードへ
+    if (user) {
+      const role = user.app_metadata?.role;
+      if (pathname.startsWith(AUTH_ROUTES.STUDENT_LOGIN) && role === USER_ROLES.STUDENT) {
+        return NextResponse.redirect(
+          new URL(STUDENT_ROUTES.DASHBOARD, request.url),
+        );
+      }
     }
-    const role = (user.app_metadata?.role ?? null) as string | null;
-    if (!role || !COMPANY_ROLES.has(role)) {
-      const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/company/login";
-      return NextResponse.redirect(loginUrl);
-    }
+    return supabaseResponse;
   }
 
-  if (pathname === "/company/login" && user) {
-    const role = (user.app_metadata?.role ?? null) as string | null;
-    if (role && COMPANY_ROLES.has(role)) {
-      const dashboardUrl = request.nextUrl.clone();
-      dashboardUrl.pathname = "/company/dashboard";
-      return NextResponse.redirect(dashboardUrl);
-    }
+  // --- 認証が必要なルート ---
+  if (!user) {
+    // アクセス先に応じて適切なログインページへリダイレクト
+    const loginUrl = pathname.startsWith("/company")
+      ? AUTH_ROUTES.COMPANY_LOGIN
+      : AUTH_ROUTES.STUDENT_LOGIN;
+    const redirectUrl = new URL(loginUrl, request.url);
+    redirectUrl.searchParams.set("redirectTo", pathname);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  // --- ロールチェック ---
+  const role = user.app_metadata?.role;
+
+  if (pathname.startsWith("/student") && role !== USER_ROLES.STUDENT) {
+    return NextResponse.redirect(
+      new URL(`${AUTH_ROUTES.STUDENT_LOGIN}?error=unauthorized`, request.url),
+    );
   }
 
   return supabaseResponse;
@@ -49,6 +64,13 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    /*
+     * 以下を除外:
+     * - _next/static, _next/image (Next.js 内部)
+     * - favicon.ico, 画像ファイル
+     * - /monitoring (Sentry tunnel)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|monitoring|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
+

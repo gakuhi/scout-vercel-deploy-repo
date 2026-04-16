@@ -14,10 +14,10 @@ CREATE TYPE user_role AS ENUM (
 );
 
 CREATE TYPE product_source AS ENUM (
-  'smart_es',
-  'company_ai',
-  'interview_ai',
-  'syukatsu'
+  'smartes',
+  'compai',
+  'interviewai',
+  'sugoshu'
 );
 
 CREATE TYPE scout_status AS ENUM (
@@ -80,7 +80,7 @@ CREATE SCHEMA IF NOT EXISTS internal;
 
 -- ----- 1. students -----
 CREATE TABLE students (
-  id              UUID        PRIMARY KEY REFERENCES auth.users(id),
+  id              UUID        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email           TEXT        NOT NULL UNIQUE,
   last_name       TEXT,
   first_name      TEXT,
