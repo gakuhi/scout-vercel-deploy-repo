@@ -14,10 +14,10 @@ CREATE TYPE user_role AS ENUM (
 );
 
 CREATE TYPE product_source AS ENUM (
-  'smart_es',
-  'company_ai',
-  'interview_ai',
-  'syukatsu'
+  'smartes',
+  'compai',
+  'interviewai',
+  'sugoshu'
 );
 
 CREATE TYPE scout_status AS ENUM (

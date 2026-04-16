@@ -45,13 +45,13 @@ export async function GET(request: NextRequest) {
     const { idToken } = await exchangeCodeForTokens(code);
 
     // 3. ID token 検証・ペイロード取得
-    const lineUser = verifyIdToken(idToken);
+    const lineUser = await verifyIdToken(idToken);
 
     // 4. origin で分岐
     if (state.origin === "direct") {
-      return await handleDirectLogin(request, await lineUser);
+      return await handleDirectLogin(request, lineUser);
     } else {
-      return await handleProductRegistration(request, await lineUser, state);
+      return await handleProductRegistration(request, lineUser, state);
     }
   } catch (err) {
     console.error("[LINE callback]", err);

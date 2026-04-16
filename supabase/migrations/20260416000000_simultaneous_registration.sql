@@ -54,19 +54,10 @@ CREATE POLICY "students_select_own_line_friendship"
 -- Service Role Key は RLS をバイパスするため、ポリシー追加不要
 
 -- =============================================================
--- 4. updated_at 自動更新トリガー
+-- 4. updated_at 自動更新トリガー（既存の handle_updated_at を再利用）
 -- =============================================================
 
--- トリガー関数（既存の関数がない場合のみ作成）
-CREATE OR REPLACE FUNCTION public.update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER line_friendships_updated_at
+CREATE TRIGGER set_updated_at
   BEFORE UPDATE ON line_friendships
   FOR EACH ROW
-  EXECUTE FUNCTION public.update_updated_at();
+  EXECUTE FUNCTION handle_updated_at();
