@@ -7,7 +7,7 @@ import { Icon } from "@/components/ui/icon";
 import {
   resetPasswordAction,
   type ResetPasswordState,
-} from "@/features/auth/actions/reset-password";
+} from "@/features/company/auth/actions/reset-password";
 
 const initialState: ResetPasswordState = {};
 

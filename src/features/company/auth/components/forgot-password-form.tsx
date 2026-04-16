@@ -8,7 +8,7 @@ import { Icon } from "@/components/ui/icon";
 import {
   forgotPasswordAction,
   type ForgotPasswordState,
-} from "@/features/auth/actions/forgot-password";
+} from "@/features/company/auth/actions/forgot-password";
 
 const initialState: ForgotPasswordState = {};
 

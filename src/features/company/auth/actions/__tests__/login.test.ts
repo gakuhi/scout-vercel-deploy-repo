@@ -40,7 +40,7 @@ function buildFormData(values: Record<string, string>): FormData {
 
 describe("loginAction", () => {
   it("メールアドレスが不正な形式の場合は validation エラーを返す", async () => {
-    const { loginAction } = await import("@/features/auth/actions/login");
+    const { loginAction } = await import("@/features/company/auth/actions/login");
     const formData = buildFormData({
       email: "not-an-email",
       password: "password123",
@@ -54,7 +54,7 @@ describe("loginAction", () => {
   });
 
   it("パスワードが空の場合は validation エラーを返す", async () => {
-    const { loginAction } = await import("@/features/auth/actions/login");
+    const { loginAction } = await import("@/features/company/auth/actions/login");
     const formData = buildFormData({
       email: "owner@example.com",
       password: "",
@@ -71,7 +71,7 @@ describe("loginAction", () => {
       data: { user: null },
       error: { message: "Invalid login credentials" },
     });
-    const { loginAction } = await import("@/features/auth/actions/login");
+    const { loginAction } = await import("@/features/company/auth/actions/login");
     const formData = buildFormData({
       email: "owner@example.com",
       password: "wrong-password",
@@ -100,7 +100,7 @@ describe("loginAction", () => {
       error: null,
     });
     signOutMock.mockResolvedValue({ error: null });
-    const { loginAction } = await import("@/features/auth/actions/login");
+    const { loginAction } = await import("@/features/company/auth/actions/login");
     const formData = buildFormData({
       email: "student@example.com",
       password: "password123",
@@ -124,7 +124,7 @@ describe("loginAction", () => {
       error: null,
     });
     signOutMock.mockResolvedValue({ error: null });
-    const { loginAction } = await import("@/features/auth/actions/login");
+    const { loginAction } = await import("@/features/company/auth/actions/login");
     const formData = buildFormData({
       email: "no-role@example.com",
       password: "password123",
@@ -152,7 +152,7 @@ describe("loginAction", () => {
         },
         error: null,
       });
-      const { loginAction } = await import("@/features/auth/actions/login");
+      const { loginAction } = await import("@/features/company/auth/actions/login");
       const formData = buildFormData({
         email: "owner@verified-corp.com",
         password: "password123",

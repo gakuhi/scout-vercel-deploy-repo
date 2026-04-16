@@ -8,7 +8,7 @@ import { Icon } from "@/components/ui/icon";
 import {
   loginAction,
   type LoginActionState,
-} from "@/features/auth/actions/login";
+} from "@/features/company/auth/actions/login";
 
 const initialState: LoginActionState = {};
 
