@@ -27,9 +27,6 @@ export function LoginForm() {
         <h3 className="text-on-surface text-3xl font-extrabold tracking-tight mb-2">
           サインイン
         </h3>
-        <p className="text-secondary text-sm">
-          資格情報を入力してポータルにアクセスしてください
-        </p>
       </header>
       <form className="space-y-6" action={formAction}>
         <div className="space-y-1.5">
@@ -50,7 +47,7 @@ export function LoginForm() {
               パスワード
             </FieldLabel>
             <Link
-              href="/forgot-password"
+              href="/company/forgot-password"
               className="text-[10px] font-bold text-primary-container uppercase tracking-wider hover:underline"
             >
               パスワードを忘れた場合
@@ -95,7 +92,7 @@ export function LoginForm() {
           {!isPending && <Icon name="arrow_forward" className="text-lg" />}
         </Button>
       </form>
-      <div className="mt-12 pt-8 border-t border-surface-container flex flex-col gap-6">
+      <div className="mt-12 pt-8 border-t border-surface-container">
         <div className="flex items-center justify-between">
           <p className="text-xs text-secondary">
             アカウントをお持ちでないですか？
@@ -106,22 +103,6 @@ export function LoginForm() {
           >
             新規登録リクエスト
           </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <button
-            type="button"
-            className="flex items-center justify-center gap-2 py-3 px-4 bg-surface-container-low hover:bg-surface-container-high transition-colors rounded-lg text-xs font-semibold text-on-secondary-container"
-          >
-            <Icon name="login" className="text-lg opacity-70" />
-            <span>Googleで続行</span>
-          </button>
-          <button
-            type="button"
-            className="flex items-center justify-center gap-2 py-3 px-4 bg-surface-container-low hover:bg-surface-container-high transition-colors rounded-lg text-xs font-semibold text-on-secondary-container"
-          >
-            <Icon name="corporate_fare" className="text-lg opacity-70" />
-            <span>SSO連携</span>
-          </button>
         </div>
       </div>
       <footer className="mt-12 flex justify-between items-center">
