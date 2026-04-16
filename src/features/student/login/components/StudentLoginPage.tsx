@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Icon } from "@/components/ui/icon";
 import { signInWithLine } from "../actions/login";
 
 const BACKGROUND_IMAGE_URL =
@@ -10,59 +9,91 @@ const BACKGROUND_IMAGE_URL =
 
 export function StudentLoginPage({ error }: { error?: string }) {
   return (
-    <>
-      <BackgroundShell />
+    <div className="bg-background text-on-background min-h-screen flex items-center justify-center overflow-hidden">
+      {/* Background Shell */}
+      <div className="fixed inset-0 z-0">
+        <img
+          alt="Sophisticated twilight city skyline"
+          className="w-full h-full object-cover"
+          src={BACKGROUND_IMAGE_URL}
+        />
+        <div className="absolute inset-0 image-overlay" />
+      </div>
+
+      {/* Auth Container */}
       <main className="z-10 w-full max-w-md px-6 flex flex-col justify-center min-h-screen fixed inset-0 m-auto h-fit">
-        <div className="bg-surface-container-lowest shadow-2xl rounded-xl overflow-hidden p-10 md:p-12">
-          <Branding />
+        <div className="bg-white shadow-2xl rounded-xl overflow-hidden p-10 md:p-12 border border-outline-variant/20">
+          {/* Branding */}
+          <div className="mb-12 text-center">
+            <h1 className="text-4xl font-extrabold tracking-tight text-primary mb-3">
+              SCOUT
+            </h1>
+            <p className="text-on-surface-variant text-sm font-medium tracking-wide">
+              プロフェッショナルな未来への扉
+            </p>
+          </div>
+
+          {/* Error */}
           {error && (
-            <div className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="mb-6 rounded-lg bg-error-container px-4 py-3 text-sm text-on-error-container">
               {error}
             </div>
           )}
-          <AuthOptions />
+
+          {/* Auth Options */}
+          <div className="space-y-8">
+            <div className="space-y-6">
+              <LineButton />
+              <p className="text-center text-[11px] text-on-surface-variant leading-relaxed px-2">
+                続行することで、弊社の{" "}
+                <Link
+                  href="#"
+                  className="underline font-semibold hover:text-primary transition-colors"
+                >
+                  利用規約
+                </Link>{" "}
+                および{" "}
+                <Link
+                  href="#"
+                  className="underline font-semibold hover:text-primary transition-colors"
+                >
+                  プライバシーポリシー
+                </Link>{" "}
+                に同意したものとみなされます。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Floating Footer Labels */}
+        <div className="flex justify-between items-center text-white/70 fixed bottom-10 left-0 right-0 max-w-md mx-auto px-6">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-extrabold tracking-[0.2em] text-white/50 uppercase">
+              Authentication
+            </span>
+            <span className="text-xs font-semibold">Secure Node v2.4</span>
+          </div>
+          <div className="h-10 w-[1px] bg-white/20" />
+          <div className="text-right">
+            <span className="text-[10px] font-extrabold tracking-[0.2em] text-white/50 uppercase">
+              Partnership
+            </span>
+            <span className="text-xs font-semibold">
+              Enterprise Grade Security
+            </span>
+          </div>
         </div>
       </main>
-      <EditorialFooter />
-      <VisualArtifacts />
-    </>
-  );
-}
 
-function BackgroundShell() {
-  return (
-    <div className="fixed inset-0 z-0">
+      {/* Visual Artifacts */}
       <div
-        role="img"
-        aria-label="Sophisticated twilight city skyline"
-        className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: `url("${BACKGROUND_IMAGE_URL}")` }}
+        aria-hidden
+        className="fixed top-0 left-0 w-1/4 h-screen bg-white/5 backdrop-blur-[2px] pointer-events-none -skew-x-12 -translate-x-1/2"
       />
-      <div className="absolute inset-0 image-overlay" />
-    </div>
-  );
-}
-
-function Branding() {
-  return (
-    <div className="mb-12 text-center">
-      <h1 className="text-4xl font-extrabold tracking-tight text-primary mb-3">
-        SCOUT
-      </h1>
-      <p className="text-on-surface-variant text-sm font-medium tracking-wide">
-        プロフェッショナルな未来への扉
-      </p>
-    </div>
-  );
-}
-
-function AuthOptions() {
-  return (
-    <div className="space-y-8">
-      <div className="space-y-6">
-        <LineButton />
-        <TermsNotice />
-      </div>
+      <div
+        aria-hidden
+        className="fixed bottom-0 right-0 w-1/4 h-screen bg-primary/5 backdrop-blur-[1px] pointer-events-none skew-x-12 translate-x-1/2"
+      />
     </div>
   );
 }
@@ -87,67 +118,14 @@ function LineButton() {
       disabled={isLoading}
       className="w-full flex items-center justify-center gap-3 line-green text-white py-4 px-6 rounded-xl font-bold shadow-lg hover:shadow-xl active:scale-[0.98] transition-all duration-200 disabled:opacity-60"
     >
-      <Icon name="chat_bubble" filled className="text-2xl" />
+      <img
+        src="/icons/line.png"
+        alt="LINE"
+        className="h-10 w-10"
+      />
       <span className="text-base">
         {isLoading ? "接続中..." : "LINEでログイン / 新規登録"}
       </span>
     </button>
-  );
-}
-
-function TermsNotice() {
-  return (
-    <p className="text-center text-[11px] text-on-surface-variant leading-relaxed px-2">
-      続行することで、弊社の{" "}
-      <Link
-        href="#"
-        className="underline font-semibold hover:text-primary transition-colors"
-      >
-        利用規約
-      </Link>{" "}
-      および{" "}
-      <Link
-        href="#"
-        className="underline font-semibold hover:text-primary transition-colors"
-      >
-        プライバシーポリシー
-      </Link>{" "}
-      に同意したものとみなされます。
-    </p>
-  );
-}
-
-function EditorialFooter() {
-  return (
-    <div className="flex justify-between items-center text-white/70 fixed bottom-10 left-0 right-0 max-w-md mx-auto px-6 z-10">
-      <div className="flex flex-col">
-        <span className="text-[10px] font-extrabold tracking-[0.2em] text-white/50 uppercase">
-          Authentication
-        </span>
-        <span className="text-xs font-semibold">Secure Node v2.4</span>
-      </div>
-      <div className="h-10 w-px bg-white/20" />
-      <div className="text-right flex flex-col">
-        <span className="text-[10px] font-extrabold tracking-[0.2em] text-white/50 uppercase">
-          Partnership
-        </span>
-        <span className="text-xs font-semibold">Enterprise Grade Security</span>
-      </div>
-    </div>
-  );
-}
-
-function VisualArtifacts() {
-  return (
-    <>
-      <div
-        aria-hidden
-        className="fixed top-0 left-0 w-1/4 h-screen bg-white/5 backdrop-blur-[2px] pointer-events-none -skew-x-12 -translate-x-1/2"
-      />
-      <div
-        aria-hidden
-        className="fixed bottom-0 right-0 w-1/4 h-screen bg-primary/5 backdrop-blur-[1px] pointer-events-none skew-x-12 translate-x-1/2"
-      />
-    </>
   );
 }
