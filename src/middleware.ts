@@ -11,8 +11,13 @@ export async function middleware(request: NextRequest) {
   const { user, supabaseResponse } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
-  const isLoginRoute = pathname === "/company/login";
-  const isCompanyRoute = pathname.startsWith("/company") && !isLoginRoute;
+  const AUTH_PUBLIC_ROUTES = new Set([
+    "/company/login",
+    "/company/forgot-password",
+    "/company/reset-password",
+  ]);
+  const isPublicAuthRoute = AUTH_PUBLIC_ROUTES.has(pathname);
+  const isCompanyRoute = pathname.startsWith("/company") && !isPublicAuthRoute;
 
   if (isCompanyRoute) {
     if (!user) {
@@ -29,7 +34,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (isLoginRoute && user) {
+  if (pathname === "/company/login" && user) {
     const role = (user.app_metadata?.role ?? null) as string | null;
     if (role && COMPANY_ROLES.has(role)) {
       const dashboardUrl = request.nextUrl.clone();
