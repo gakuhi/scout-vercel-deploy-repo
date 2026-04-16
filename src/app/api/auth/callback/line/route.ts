@@ -3,8 +3,8 @@ import { createServerClient } from "@supabase/ssr";
 import {
   exchangeCodeForTokens,
   verifyAndDecodeIdToken,
-} from "@/features/auth/lib/line";
-import { createOrSignInLineUser } from "@/features/auth/lib/session";
+} from "@/features/student/login/lib/line";
+import { createOrSignInLineUser } from "@/features/student/login/lib/session";
 import { AUTH_ROUTES, STUDENT_ROUTES } from "@/shared/constants/auth";
 import type { Database } from "@/shared/types/database";
 

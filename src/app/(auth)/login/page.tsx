@@ -1,4 +1,4 @@
-import { LoginPage } from "@/features/auth";
+import { LoginPage } from "@/features/student/login";
 
 export const metadata = {
   title: "ログイン | Scout",

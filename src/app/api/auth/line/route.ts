@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateLineAuthUrl } from "@/features/auth/lib/line";
+import { generateLineAuthUrl } from "@/features/student/login/lib/line";
 
 /**
  * GET /api/auth/line
