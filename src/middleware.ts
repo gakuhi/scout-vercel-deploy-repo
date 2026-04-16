@@ -11,7 +11,11 @@ const PUBLIC_PREFIXES = [
   AUTH_ROUTES.STUDENT_LOGIN,
   AUTH_ROUTES.COMPANY_LOGIN,
   "/api/student/auth/",
+  "/company/forgot-password",   // ← 追加
+  "/company/reset-password",    // ← 追加
+  "/company/confirm",           // ← 追加
 ] as const;
+
 
 function isPublicRoute(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
@@ -69,3 +73,4 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|monitoring|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
+

@@ -18,6 +18,7 @@ export default defineConfig({
         "src/app/**",
         "src/shared/types/**",
         "src/test/**",
+        "src/components/ui/**",
       ],
       // @ts-expect-error -- all/include are valid v8 runtime options but missing from Vitest v4 types
       all: true,
