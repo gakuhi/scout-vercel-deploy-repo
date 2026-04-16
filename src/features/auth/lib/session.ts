@@ -2,48 +2,50 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { LineIdTokenPayload } from "../types";
 
 /**
+ * LINE user ID から決定的なプレースホルダー email を生成する。
+ * LINE は email scope の承認が別途必要なため、プレースホルダーで Supabase Auth に登録する。
+ */
+export function lineEmail(lineUserId: string): string {
+  return `line_${lineUserId}@line.scout.local`;
+}
+
+/**
  * LINE ユーザーを Supabase に作成または既存ユーザーを検索し、
  * セッション確立用の magic link トークンを生成する。
  *
- * @returns hashed_token — Supabase の verify endpoint に渡してセッションを確立する
+ * @returns hashed_token — verifyOtp に渡してセッションを確立する
  */
 export async function createOrSignInLineUser(
   linePayload: LineIdTokenPayload,
-  email: string,
 ): Promise<{ hashedToken: string; isNewUser: boolean }> {
   const admin = createAdminClient();
+  const email = linePayload.email ?? lineEmail(linePayload.sub);
   let isNewUser = false;
 
-  // 1. メールアドレスで既存ユーザーを検索
-  const { data: existingUsers } = await admin.auth.admin.listUsers({
-    perPage: 1,
-  });
+  // 1. students テーブルで既存ユーザーを検索（listUsers 全件走査を回避）
+  const { data: existingStudent } = await admin
+    .from("students")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
 
-  // listUsers はフィルタをサポートしないため、メールで手動検索
-  // パフォーマンスが問題になる場合は DB クエリに切り替える
-  let existingUser = existingUsers?.users.find((u) => u.email === email);
-
-  if (!existingUser) {
-    // ページネーション対応: メールで直接検索を試みる
-    // Supabase admin API v2 ではメールフィルタが使える場合がある
-    const { data: allUsers } = await admin.auth.admin.listUsers({
-      perPage: 1000,
-    });
-    existingUser = allUsers?.users.find((u) => u.email === email);
-  }
-
-  if (existingUser) {
-    // 既存ユーザーに LINE 情報を追加/更新
-    await admin.auth.admin.updateUserById(existingUser.id, {
+  if (existingStudent) {
+    // 既存ユーザーの LINE 情報を更新
+    await admin.auth.admin.updateUserById(existingStudent.id, {
       user_metadata: {
-        ...existingUser.user_metadata,
         line_user_id: linePayload.sub,
-        display_name:
-          linePayload.name ?? existingUser.user_metadata?.display_name,
-        avatar_url:
-          linePayload.picture ?? existingUser.user_metadata?.avatar_url,
+        display_name: linePayload.name,
+        avatar_url: linePayload.picture,
       },
     });
+
+    // プロフィール画像を同期
+    if (linePayload.picture) {
+      await admin
+        .from("students")
+        .update({ profile_image_url: linePayload.picture })
+        .eq("id", existingStudent.id);
+    }
   } else {
     // 新規ユーザーを作成
     const { data: newUser, error: createError } =
@@ -58,20 +60,24 @@ export async function createOrSignInLineUser(
         app_metadata: {
           role: "student",
           provider: "line",
+          providers: ["line"],
         },
       });
 
-    if (createError) {
-      throw new Error(`ユーザー作成に失敗しました: ${createError.message}`);
+    if (createError || !newUser.user) {
+      throw new Error(
+        `ユーザー作成に失敗しました: ${createError?.message ?? "unknown"}`,
+      );
     }
 
-    existingUser = newUser.user;
     isNewUser = true;
 
     // students テーブルにレコードを作成（RLS バイパスのため admin client 使用）
     const { error: insertError } = await admin.from("students").insert({
-      id: existingUser.id,
+      id: newUser.user.id,
       email,
+      last_name: linePayload.name ?? null,
+      profile_image_url: linePayload.picture ?? null,
     });
 
     if (insertError) {
