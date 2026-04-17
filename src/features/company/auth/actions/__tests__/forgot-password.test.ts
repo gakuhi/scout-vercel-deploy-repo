@@ -78,8 +78,6 @@ describe("forgotPasswordAction", () => {
     const result = await forgotPasswordAction({}, formData);
 
     expect(result).toEqual({ success: true });
-    expect(resetPasswordForEmailMock).toHaveBeenCalledWith("user@example.com", {
-      redirectTo: "http://127.0.0.1:3000/company/reset-password",
-    });
+    expect(resetPasswordForEmailMock).toHaveBeenCalledWith("user@example.com");
   });
 });
