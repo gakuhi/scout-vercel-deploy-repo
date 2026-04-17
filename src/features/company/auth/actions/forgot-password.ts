@@ -22,12 +22,9 @@ export async function forgotPasswordAction(
   }
 
   const supabase = await createClient();
-  const siteUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
 
   const { error } = await supabase.auth.resetPasswordForEmail(
     parsed.data.email,
-    { redirectTo: `${siteUrl}/company/reset-password` },
   );
 
   if (error) {

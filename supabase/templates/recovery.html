@@ -13,7 +13,7 @@
       パスワードのリセットがリクエストされました。<br>
       以下のボタンをクリックして、新しいパスワードを設定してください。
     </p>
-    <a href="{{ .SiteURL }}/company/confirm?token_hash={{ .TokenHash }}&type=recovery&next={{ .RedirectTo }}"
+    <a href="{{ .SiteURL }}/company/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/company/reset-password"
        style="display: inline-block; background: linear-gradient(135deg, #001f41, #003466); color: #ffffff; font-size: 14px; font-weight: 700; text-decoration: none; padding: 14px 32px; border-radius: 8px;">
       パスワードをリセットする
     </a>
