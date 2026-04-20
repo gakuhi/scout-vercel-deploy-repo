@@ -1,38 +1,27 @@
-"use client";
-
-import { BottomNav } from "@/features/student/shell/components/bottom-nav";
-import { Sidebar } from "@/features/student/shell/components/sidebar";
+import { getProfile } from "@/features/student/profile/actions";
+import { StudentAppShell } from "@/features/student/shell/components/student-app-shell";
 import {
-  SidebarProvider,
-  useSidebar,
-} from "@/features/student/shell/sidebar-context";
+  buildFullName,
+  buildInitials,
+} from "@/features/student/profile/utils";
+import type { SidebarUser } from "@/features/student/shell/components/sidebar";
 
-/**
- * 学生アプリ共通シェル。サイドバー + ボトムナビ + 開閉 Context のみを提供する。
- * 上部バー（TopNav / 浮きハンバーガー）はページ固有なので、ネストした layout
- * で付与する:
- *   - (with-top-nav)/layout.tsx: デフォルト TopNav + pt-24
- *   - profile/layout.tsx: 浮きハンバーガー + pt-10
- */
-export default function StudentAppLayout({
+export default async function StudentAppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <SidebarProvider>
-      <Shell>{children}</Shell>
-    </SidebarProvider>
-  );
-}
+  const profile = await getProfile();
+  const user: SidebarUser | null = profile
+    ? {
+        imageUrl: profile.profile_image_url,
+        name: buildFullName(profile.last_name, profile.first_name),
+        initials: buildInitials(profile.last_name, profile.first_name),
+        affiliation:
+          [profile.university, profile.faculty].filter(Boolean).join(" ") ||
+          "未設定",
+      }
+    : null;
 
-function Shell({ children }: { children: React.ReactNode }) {
-  const { open, setOpen } = useSidebar();
-  return (
-    <div className="min-h-screen bg-surface">
-      <Sidebar open={open} onClose={() => setOpen(false)} />
-      <main className="md:ml-64 pb-24 md:pb-16">{children}</main>
-      <BottomNav />
-    </div>
-  );
+  return <StudentAppShell user={user}>{children}</StudentAppShell>;
 }

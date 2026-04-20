@@ -6,19 +6,21 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/shared/utils/cn";
 import { STUDENT_NAV_ITEMS, resolveActiveNavKey } from "../nav-items";
 
-// TODO: auth context 実装後、ログイン中ユーザーの値に置き換える
-const PLACEHOLDER_USER = {
-  imageUrl: "https://i.pravatar.cc/80?img=3",
-  name: "佐藤 健太",
-  affiliation: "東京未来大学 3年生",
+export type SidebarUser = {
+  imageUrl: string | null;
+  name: string;
+  initials: string;
+  affiliation: string;
 };
 
 export function Sidebar({
   open,
   onClose,
+  user,
 }: {
   open: boolean;
   onClose: () => void;
+  user: SidebarUser | null;
 }) {
   const pathname = usePathname();
   const active = resolveActiveNavKey(pathname);
@@ -35,7 +37,7 @@ export function Sidebar({
 
       <nav
         className={cn(
-          "fixed right-0 md:left-0 md:right-auto top-0 h-screen w-64 bg-surface border-l md:border-l-0 md:border-r border-surface-container flex flex-col py-6 px-4 z-50 transition-transform duration-200",
+          "fixed right-0 md:left-0 md:right-auto top-0 h-screen w-64 bg-surface border-l md:border-l-0 md:border-r border-surface-container flex flex-col pt-6 pb-24 md:pb-6 px-4 z-50 transition-transform duration-200 overflow-y-auto",
           open ? "translate-x-0" : "translate-x-full md:translate-x-0",
         )}
       >
@@ -72,23 +74,28 @@ export function Sidebar({
         </div>
 
         <div className="border-t border-surface-container pt-6 space-y-2">
-          {/* TODO: auth context が整い次第、ログイン中のユーザー情報に差し替える */}
-          <div className="flex items-center gap-3 px-4 mb-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={PLACEHOLDER_USER.imageUrl}
-              alt={PLACEHOLDER_USER.name}
-              className="w-10 h-10 rounded-full object-cover bg-primary-container"
-            />
-            <div className="overflow-hidden">
-              <p className="text-sm font-bold text-primary">
-                {PLACEHOLDER_USER.name}
-              </p>
-              <p className="text-[10px] text-on-surface-variant truncate">
-                {PLACEHOLDER_USER.affiliation}
-              </p>
+          {user && (
+            <div className="flex items-center gap-3 px-4 mb-4">
+              {user.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.imageUrl}
+                  alt={user.name}
+                  className="w-10 h-10 rounded-full object-cover bg-primary-container"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-sm font-bold text-primary">
+                  {user.initials}
+                </div>
+              )}
+              <div className="overflow-hidden">
+                <p className="text-sm font-bold text-primary">{user.name}</p>
+                <p className="text-[10px] text-on-surface-variant truncate">
+                  {user.affiliation}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
           <button
             type="button"
             className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors text-sm font-medium"
