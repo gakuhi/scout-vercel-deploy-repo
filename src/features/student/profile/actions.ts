@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { ProfileMock } from "@/features/student/profile/mock";
+import type {
+  ActivityLevel,
+  IndustryCategory,
+  JobCategory,
+  ProfileMock,
+} from "@/features/student/profile/mock";
 import { profileSchema } from "@/features/student/profile/schema";
 import { buildFullName, buildInitials, checkboxToBool } from "@/features/student/profile/utils";
 
@@ -118,7 +123,7 @@ export async function getProfileViewData(): Promise<ProfileMock | null> {
   const [studentRes, integratedRes, linksRes] = await Promise.all([
     supabase
       .from("students")
-      .select("*")
+      .select("*, mbti_types(type_code, name_ja)")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -145,13 +150,56 @@ export async function getProfileViewData(): Promise<ProfileMock | null> {
     ? (ip.strengths as string[])
     : [];
   const skills = Array.isArray(ip?.skills) ? (ip.skills as string[]) : [];
+
+  // interests JSONB は { industries: string[], jobTypes: string[] } 構造で保存する想定。
+  // スキーマ未定義のため、防御的にパースして欠損・型不一致は空配列扱いとする。
+  const rawInterests = ip?.interests as
+    | { industries?: unknown; jobTypes?: unknown }
+    | null
+    | undefined;
+  const interestedIndustries = Array.isArray(rawInterests?.industries)
+    ? (rawInterests.industries.filter(
+        (v): v is string => typeof v === "string",
+      ) as IndustryCategory[])
+    : [];
+  const interestedJobTypes = Array.isArray(rawInterests?.jobTypes)
+    ? (rawInterests.jobTypes.filter(
+        (v): v is string => typeof v === "string",
+      ) as JobCategory[])
+    : [];
+
+  // activity_level は TEXT カラム。想定値以外が入っていた場合は null 扱い
+  const rawActivity = ip?.activity_level;
+  const activityLevel: ActivityLevel | null =
+    rawActivity === "low" || rawActivity === "medium" || rawActivity === "high"
+      ? rawActivity
+      : null;
+
+  // Supabase の型推論で結合結果が単体 / 配列のどちらにもなり得るため両対応
+  type MbtiJoinRow = { type_code?: string | null; name_ja?: string | null };
+  const mbtiJoin = (
+    s as { mbti_types?: MbtiJoinRow | MbtiJoinRow[] | null }
+  ).mbti_types;
+  const mbtiRow: MbtiJoinRow | null = Array.isArray(mbtiJoin)
+    ? (mbtiJoin[0] ?? null)
+    : (mbtiJoin ?? null);
+  const mbtiTypeCode = mbtiRow?.type_code ?? null;
+  const mbtiTypeName = mbtiRow?.name_ja ?? null;
+
   return {
     name,
     university: s.university ?? "未設定",
     faculty: s.faculty ?? "",
-    graduationYear: s.graduation_year ?? 2027,
+    department: s.department ?? "",
+    prefecture: s.prefecture ?? "",
+    graduationYear: s.graduation_year ?? null,
     avatarInitials: initials,
     profileImageUrl: await resolveProfileImageUrl(supabase, s.profile_image_url),
+    email: s.email ?? "",
+    phone: s.phone ?? "",
+    isProfilePublic: s.is_profile_public ?? false,
+    mbtiTypeCode,
+    mbtiTypeName,
     bio: s.bio ?? "",
     integratedProfile: {
       summary: ip?.summary ?? "4プロダクトとの連携後にAI統合プロフィールが生成されます。",
@@ -169,8 +217,9 @@ export async function getProfileViewData(): Promise<ProfileMock | null> {
       writingSkillScore: ip ? 50 : null,
       leadershipScore: ip ? 50 : null,
       activityVolumeScore: ip ? 0 : null,
-      interestedIndustries: [],
-      interestedJobTypes: [],
+      activityLevel,
+      interestedIndustries,
+      interestedJobTypes,
       scoreConfidence: 0,
     },
     productCounts: await getProductCounts(supabase, linksRes.data ?? []),

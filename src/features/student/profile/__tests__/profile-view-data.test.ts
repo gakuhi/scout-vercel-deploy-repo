@@ -205,4 +205,234 @@ describe("getProfileViewData", () => {
     const result = await getProfileViewData();
     expect(result!.bio).toBe("");
   });
+
+  // ─── プレビュー用に追加されたフィールド ───
+
+  it("department / prefecture を返す", async () => {
+    setupMockSupabase({
+      student: studentRow({
+        department: "情報工学科",
+        prefecture: "神奈川県",
+      }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.department).toBe("情報工学科");
+    expect(result!.prefecture).toBe("神奈川県");
+  });
+
+  it("department / prefecture が null の場合は空文字を返す", async () => {
+    setupMockSupabase({
+      student: studentRow({ department: null, prefecture: null }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.department).toBe("");
+    expect(result!.prefecture).toBe("");
+  });
+
+  it("email / phone を返す", async () => {
+    setupMockSupabase({
+      student: studentRow({
+        email: "test@example.com",
+        phone: "090-1111-2222",
+      }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.email).toBe("test@example.com");
+    expect(result!.phone).toBe("090-1111-2222");
+  });
+
+  it("email / phone が null の場合は空文字を返す", async () => {
+    setupMockSupabase({
+      student: studentRow({ email: null, phone: null }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.email).toBe("");
+    expect(result!.phone).toBe("");
+  });
+
+  it("is_profile_public = true を返す", async () => {
+    setupMockSupabase({
+      student: studentRow({ is_profile_public: true }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.isProfilePublic).toBe(true);
+  });
+
+  it("is_profile_public が null の場合は false を返す", async () => {
+    setupMockSupabase({
+      student: studentRow({ is_profile_public: null }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.isProfilePublic).toBe(false);
+  });
+
+  it("graduation_year が null の場合は graduationYear に null を返す", async () => {
+    setupMockSupabase({
+      student: studentRow({ graduation_year: null }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.graduationYear).toBeNull();
+  });
+
+  // ─── mbti_types の結合解決（単体 / 配列 / null の 3 形を許容） ───
+
+  it("mbti_types が単体オブジェクトで返るケースで type_code / name_ja を解決する", async () => {
+    setupMockSupabase({
+      student: studentRow({ mbti_types: { type_code: "INTJ", name_ja: "建築家" } }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.mbtiTypeCode).toBe("INTJ");
+    expect(result!.mbtiTypeName).toBe("建築家");
+  });
+
+  it("mbti_types が配列で返るケースで先頭要素の type_code / name_ja を解決する", async () => {
+    setupMockSupabase({
+      student: studentRow({ mbti_types: [{ type_code: "INFP", name_ja: "仲介者" }] }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.mbtiTypeCode).toBe("INFP");
+    expect(result!.mbtiTypeName).toBe("仲介者");
+  });
+
+  it("mbti_types が null の場合は mbtiTypeCode / mbtiTypeName が null になる", async () => {
+    setupMockSupabase({
+      student: studentRow({ mbti_types: null }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.mbtiTypeCode).toBeNull();
+    expect(result!.mbtiTypeName).toBeNull();
+  });
+
+  it("mbti_types フィールドが無い場合も mbtiTypeCode / mbtiTypeName が null になる", async () => {
+    setupMockSupabase({ student: studentRow() });
+
+    const result = await getProfileViewData();
+    expect(result!.mbtiTypeCode).toBeNull();
+    expect(result!.mbtiTypeName).toBeNull();
+  });
+
+  it("mbti_types が空配列の場合は mbtiTypeCode / mbtiTypeName が null になる", async () => {
+    setupMockSupabase({
+      student: studentRow({ mbti_types: [] }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.mbtiTypeCode).toBeNull();
+    expect(result!.mbtiTypeName).toBeNull();
+  });
+
+  // ─── 興味関心（interests JSONB） ───
+
+  it("interests JSONB から industries / jobTypes を抽出する", async () => {
+    setupMockSupabase({
+      integratedProfile: integratedProfileRow({
+        interests: {
+          industries: ["it_software", "consulting"],
+          jobTypes: ["engineer_it"],
+        },
+      }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.integratedProfile.interestedIndustries).toEqual([
+      "it_software",
+      "consulting",
+    ]);
+    expect(result!.integratedProfile.interestedJobTypes).toEqual(["engineer_it"]);
+  });
+
+  it("interests が null の場合は industries / jobTypes が空配列になる", async () => {
+    setupMockSupabase({
+      integratedProfile: integratedProfileRow({ interests: null }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.integratedProfile.interestedIndustries).toEqual([]);
+    expect(result!.integratedProfile.interestedJobTypes).toEqual([]);
+  });
+
+  it("interests の industries が配列以外の場合は空配列になる", async () => {
+    setupMockSupabase({
+      integratedProfile: integratedProfileRow({
+        interests: { industries: "invalid", jobTypes: [] },
+      }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.integratedProfile.interestedIndustries).toEqual([]);
+  });
+
+  it("interests の要素に文字列以外が混じっている場合はフィルタされる", async () => {
+    setupMockSupabase({
+      integratedProfile: integratedProfileRow({
+        interests: {
+          industries: ["it_software", 123, null, "finance"],
+          jobTypes: [],
+        },
+      }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.integratedProfile.interestedIndustries).toEqual([
+      "it_software",
+      "finance",
+    ]);
+  });
+
+  // ─── 就活活動量（activity_level TEXT） ───
+
+  it("activity_level = 'high' の場合は activityLevel に 'high' が入る", async () => {
+    setupMockSupabase({
+      integratedProfile: integratedProfileRow({ activity_level: "high" }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.integratedProfile.activityLevel).toBe("high");
+  });
+
+  it("activity_level = 'medium' の場合は activityLevel に 'medium' が入る", async () => {
+    setupMockSupabase({
+      integratedProfile: integratedProfileRow({ activity_level: "medium" }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.integratedProfile.activityLevel).toBe("medium");
+  });
+
+  it("activity_level = 'low' の場合は activityLevel に 'low' が入る", async () => {
+    setupMockSupabase({
+      integratedProfile: integratedProfileRow({ activity_level: "low" }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.integratedProfile.activityLevel).toBe("low");
+  });
+
+  it("activity_level が想定外の値の場合は activityLevel が null になる", async () => {
+    setupMockSupabase({
+      integratedProfile: integratedProfileRow({ activity_level: "extreme" }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.integratedProfile.activityLevel).toBeNull();
+  });
+
+  it("activity_level が null の場合は activityLevel が null になる", async () => {
+    setupMockSupabase({
+      integratedProfile: integratedProfileRow({ activity_level: null }),
+    });
+
+    const result = await getProfileViewData();
+    expect(result!.integratedProfile.activityLevel).toBeNull();
+  });
 });
