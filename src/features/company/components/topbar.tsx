@@ -7,17 +7,6 @@ export function Topbar() {
         <span className="text-lg font-extrabold text-primary-container">
           Executive Monograph
         </span>
-        <div className="relative hidden lg:block">
-          <Icon
-            name="search"
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm"
-          />
-          <input
-            type="text"
-            placeholder="候補者、キーワードで検索..."
-            className="pl-10 pr-4 py-1.5 bg-surface-container-low border-none rounded-lg text-sm w-80 focus:ring-2 focus:ring-primary-container focus:outline-none transition-all"
-          />
-        </div>
       </div>
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-4">

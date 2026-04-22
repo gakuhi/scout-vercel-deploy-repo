@@ -238,9 +238,9 @@ content_path = "./supabase/templates/recovery.html"
 subject = "メールアドレスの確認 | Executive Monograph"
 content_path = "./supabase/templates/confirmation.html"
 
-# [auth.email.template.invite]
-# subject = "招待のご案内 | Executive Monograph"
-# content_path = "./supabase/templates/invite.html"
+[auth.email.template.invite]
+subject = "チームへの招待 | scoutlink"
+content_path = "./supabase/templates/invite.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
