@@ -1,0 +1,8 @@
+{
+  "crons": [
+    { "path": "/api/sync/smartes", "schedule": "0 18 * * *" },
+    { "path": "/api/sync/interviewai", "schedule": "0 18 * * *" },
+    { "path": "/api/sync/compai", "schedule": "0 18 * * *" },
+    { "path": "/api/sync/sugoshu", "schedule": "0 18 * * *" }
+  ]
+}

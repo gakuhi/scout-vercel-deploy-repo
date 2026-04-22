@@ -756,7 +756,7 @@ erDiagram
 
 ### 4. student_product_links — プロダクト紐付け
 
-学生アカウントと既存4プロダクトのアカウントを紐付ける。メールアドレスで自動マッチング後、学生の確認を経て作成。
+学生アカウント（`students.id`）と、各プロダクト側の外部ユーザーID（`external_user_id`）の組み合わせを保持するテーブル。同時登録フローでプロダクト→スカウトに state 経由で渡される `source_user_id` をそのまま `external_user_id` として保存する。1 学生あたり 1 プロダクトにつき 1 リンク（`UNIQUE(student_id, product)`）。
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
@@ -777,7 +777,7 @@ erDiagram
 |---|---|---|---|
 | id | UUID | PK, DEFAULT gen_random_uuid() | |
 | external_user_id | TEXT | NOT NULL, UNIQUE | 面接AI側の user_id |
-| email | TEXT | NOT NULL | メールアドレス（突合用） |
+| email | TEXT | | メール（現設計では冗長。`students.email` 参照で足りる。将来カラム削除検討） |
 | original_created_at | TIMESTAMPTZ | | 元データの作成日時 |
 | synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
 
@@ -828,7 +828,7 @@ erDiagram
 |---|---|---|---|
 | id | UUID | PK, DEFAULT gen_random_uuid() | |
 | external_user_id | TEXT | NOT NULL, UNIQUE | 企業分析AI側の user_id |
-| email | TEXT | NOT NULL | メールアドレス（突合用） |
+| email | TEXT | | メール（現設計では冗長。`students.email` 参照で足りる。将来カラム削除検討） |
 | original_created_at | TIMESTAMPTZ | | 元データの作成日時 |
 | synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
 
@@ -872,13 +872,13 @@ erDiagram
 
 #### 🔵 11. synced_smartes_users — ユーザー情報
 
-元テーブル: `user`。ETLで `email IS NULL` のレコードは除外する（LINE認証のみでメール未登録のユーザーは突合不可のため）。
+元テーブル: `user`。
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
 | id | UUID | PK, DEFAULT gen_random_uuid() | |
 | external_user_id | TEXT | NOT NULL, UNIQUE | スマートES側の user_id |
-| email | TEXT | NOT NULL | メールアドレス（突合用） |
+| email | TEXT | | メール（現設計では冗長。`students.email` 参照で足りる。将来カラム削除検討） |
 | original_created_at | TIMESTAMPTZ | | 元データの created_at |
 | synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
 
@@ -938,13 +938,13 @@ erDiagram
 
 #### 🔵 15. synced_sugoshu_users — ユーザー情報
 
-元テーブル `user` と `user_profile` をJOINして取得。
+元テーブル `User`。
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
 | id | UUID | PK, DEFAULT gen_random_uuid() | |
-| external_user_id | TEXT | NOT NULL, UNIQUE | すごい就活側の user_id |
-| email | TEXT | NOT NULL | メールアドレス（突合用） |
+| external_user_id | TEXT | NOT NULL, UNIQUE | すごい就活側の `User._id` |
+| email | TEXT | | メール（現設計では冗長。`students.email` 参照で足りる。将来カラム削除検討） |
 | original_created_at | TIMESTAMPTZ | | 元データの作成日時 |
 | synced_at | TIMESTAMPTZ | DEFAULT now() | 同期日時 |
 
@@ -1211,7 +1211,9 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 
 ## インデックス
 
-`synced_*_users.external_user_id` は `UNIQUE` 制約により暗黙のインデックスが作成されるため、明示的な定義は不要。`synced_*_users.email` は突合フェーズで `WHERE LOWER(email) = LOWER($1)` の形で4プロダクト分すべて引かれるため、関数インデックスを張る。
+`synced_*_users.external_user_id` は `UNIQUE` 制約により暗黙のインデックスが作成されるため、明示的な定義は不要。
+
+`synced_*_users.email` には `(LOWER(email))` 関数インデックスが存在するが、これは当初の「email 突合で利用中プロダクトを検出する」設計時のもの。現行設計では `student_product_links` を `external_user_id` で直接作成するため email 突合は行われず、このインデックスは **使用されない（legacy）**。将来的に削除してよい。
 
 ### 検索パフォーマンス用
 
@@ -1223,18 +1225,18 @@ Claude APIで4プロダクトのデータを分析し、統合的な学生プロ
 | students | (prefecture) | 都道府県フィルター |
 | students | (academic_type) | 文理フィルター |
 | students | (mbti_type_id) | MBTIフィルター |
-| synced_interviewai_users | (LOWER(email)) | メール突合用（大文字小文字を区別せず突合するため関数インデックス） |
+| synced_interviewai_users | (LOWER(email)) | legacy（元々は email 突合用。現行設計では使用されない） |
 | synced_interviewai_sessions | (external_user_id) | ユーザー別面接一覧 |
 | synced_interviewai_searches | (external_user_id) | ユーザー別検索履歴 |
-| synced_compai_users | (LOWER(email)) | メール突合用（大文字小文字を区別せず突合するため関数インデックス） |
+| synced_compai_users | (LOWER(email)) | legacy（元々は email 突合用。現行設計では使用されない） |
 | synced_compai_researches | (external_user_id) | ユーザー別調査一覧 |
 | synced_compai_messages | (external_user_id) | ユーザー別質問一覧 |
 | synced_compai_messages | (external_research_id) | research別メッセージ |
-| synced_smartes_users | (LOWER(email)) | メール突合用（大文字小文字を区別せず突合するため関数インデックス） |
+| synced_smartes_users | (LOWER(email)) | legacy（元々は email 突合用。現行設計では使用されない） |
 | synced_smartes_motivations | (external_user_id) | ユーザー別志望動機一覧 |
 | synced_smartes_gakuchika | (external_user_id) | ユーザー別ガクチカ一覧 |
 | synced_smartes_generated_es | (external_user_id) | ユーザー別AI生成ES一覧 |
-| synced_sugoshu_users | (LOWER(email)) | メール突合用（大文字小文字を区別せず突合するため関数インデックス） |
+| synced_sugoshu_users | (LOWER(email)) | legacy（元々は email 突合用。現行設計では使用されない） |
 | synced_sugoshu_resumes | (external_user_id) | ユーザー別履歴書一覧 |
 | synced_sugoshu_diagnoses | (external_user_id) | ユーザー別診断一覧 |
 | scouts | (student_id, status) | 学生のスカウト一覧 |
@@ -1413,25 +1415,33 @@ RLS は行単位のアクセス制御のみ。カラム単位の制限や頻出 
  ※ student_product_links がない限り、スカウト側の学生とは紐付かない
 ```
 
-#### Phase B: 学生の同意（UIアクション）
+#### Phase B: 紐付け（同時登録 state 経由）
 
-学生がスカウトサービスに登録後、連携画面で `synced_*_users` のemailと突合し、利用中のプロダクトを表示。学生が同意すると `student_product_links` を作成し、`students.data_consent_granted_at` を更新する。同意は学生単位（プロダクトごとではない）であり、一度同意すれば既に同期済みの全データがJOIN可能になる。
+プロダクト→スカウトの同時登録フローで、プロダクト側が state に `source_user_id`（プロダクトの内部ユーザーID）と email を署名付きで含めて渡す。スカウトは LINE 認証完了後に `students` を作成/特定し、`student_product_links` を `INSERT`（または `UPSERT`）して `(students.id, product, external_user_id)` の対応を確定する。
+
+email による自動突合は行わない（面接AI・企業分析AI の `auth.users` や すごい就活 の Bubble `authentication` は外部ロールから読めないため、元々成立しなかった設計）。
 
 ```
-学生がログイン
-    → synced_*_users.email で突合（「面接AIを使っていますね」）
-    → データプレビュー表示
-    → 学生が同意
+プロダクト側
+    → state（source_user_id + email + HMAC 署名）を付けてスカウトへリダイレクト
+    → スカウトで LINE 認証完了
                                     │
                                     ▼
-        ┌────────────────────────────────────────────┐
-        │  students.data_consent_granted_at = now()  │ ← 学生単位の同意フラグ
-        │  student_product_links を各プロダクト分INSERT │ ← プロダクト紐付け
-        └────────────────────────────────────────────┘
+        ┌──────────────────────────────────────────────────┐
+        │  students を作成/特定（state の email を保持）       │
+        │  student_product_links を INSERT                 │
+        │    (student_id, product, external_user_id)       │
+        └──────────────────────────────────────────────────┘
+                                    │
+                     同時に同期オンデマンドを実行
                                     │
               student_product_links.external_user_id で
-              synced_* テーブルの既存データとJOIN可能に
+              synced_* テーブルの当該ユーザー分を UPSERT
 ```
+
+#### Phase B': データ連携同意（企業への公開）
+
+連携（`student_product_links` の作成）と、企業への公開を許すデータ連携同意（`students.data_consent_granted_at`）は別ステップ。**連携があっても、同意が無ければ企業からは見えない**（RLS で `data_consent_granted_at IS NOT NULL` を条件にしている）。
 
 #### Phase C: AI プロフィール生成
 
@@ -1448,9 +1458,10 @@ RLS は行単位のアクセス制御のみ。カラム単位の制限や頻出 
 
 #### 連携手順まとめ
 
-1. **[常時]** ETLが各プロダクトDBから全ユーザーの全データを `synced_*` テーブルに同期（`external_user_id` のみ保持） — **Phase A**
-2. 学生がスカウトサービスに初回ログイン → Supabase Auth アカウント作成
-3. 学生が「データ連携画面」を開く → `synced_*_users.email` で突合 → 利用中プロダクトを表示
-4. 連携データのプレビュー確認後、学生が同意 → `data_consent_granted_at` を記録、`student_product_links` を作成 → 既に同期済みのデータとJOIN可能に — **Phase B**
-5. Claude API が `student_product_links.external_user_id` で各 `synced_*` テーブルのデータを収集し、統合プロフィールを生成 → `student_integrated_profiles` に保存 — **Phase C**
-6. 学生が `is_profile_public = true` にすると企業から検索可能に
+1. プロダクト側が同時登録 state に `source_user_id` + email を HMAC 署名付きで含めてスカウトへリダイレクト
+2. スカウトで LINE 認証完了 → `students` を作成/特定、`student_product_links` を作成（`student_id × product × external_user_id`）— **Phase A/B**
+3. 同タイミングで対象プロダクトの `syncUser(external_user_id)` を実行 → `synced_*` テーブルに該当ユーザーのデータを UPSERT
+4. （以降）日次 Cron が同意済み全ユーザーの差分を同期
+5. 学生がデータ連携プレビューを確認して同意 → `students.data_consent_granted_at = now()` を記録 — **Phase B'**
+6. Claude API が `student_product_links.external_user_id` で各 `synced_*` テーブルのデータを収集し、統合プロフィールを生成 → `student_integrated_profiles` に保存 — **Phase C**
+7. 学生が `is_profile_public = true` にすると企業から検索可能に（同意済み学生のみ）

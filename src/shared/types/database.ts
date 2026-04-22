@@ -1077,21 +1077,21 @@ export type Database = {
       }
       synced_compai_users: {
         Row: {
-          email: string
+          email: string | null
           external_user_id: string
           id: string
           original_created_at: string | null
           synced_at: string | null
         }
         Insert: {
-          email: string
+          email?: string | null
           external_user_id: string
           id?: string
           original_created_at?: string | null
           synced_at?: string | null
         }
         Update: {
-          email?: string
+          email?: string | null
           external_user_id?: string
           id?: string
           original_created_at?: string | null
@@ -1188,21 +1188,21 @@ export type Database = {
       }
       synced_interviewai_users: {
         Row: {
-          email: string
+          email: string | null
           external_user_id: string
           id: string
           original_created_at: string | null
           synced_at: string | null
         }
         Insert: {
-          email: string
+          email?: string | null
           external_user_id: string
           id?: string
           original_created_at?: string | null
           synced_at?: string | null
         }
         Update: {
-          email?: string
+          email?: string | null
           external_user_id?: string
           id?: string
           original_created_at?: string | null
@@ -1326,21 +1326,21 @@ export type Database = {
       }
       synced_smartes_users: {
         Row: {
-          email: string
+          email: string | null
           external_user_id: string
           id: string
           original_created_at: string | null
           synced_at: string | null
         }
         Insert: {
-          email: string
+          email?: string | null
           external_user_id: string
           id?: string
           original_created_at?: string | null
           synced_at?: string | null
         }
         Update: {
-          email?: string
+          email?: string | null
           external_user_id?: string
           id?: string
           original_created_at?: string | null
@@ -1404,21 +1404,21 @@ export type Database = {
       }
       synced_sugoshu_users: {
         Row: {
-          email: string
+          email: string | null
           external_user_id: string
           id: string
           original_created_at: string | null
           synced_at: string | null
         }
         Insert: {
-          email: string
+          email?: string | null
           external_user_id: string
           id?: string
           original_created_at?: string | null
           synced_at?: string | null
         }
         Update: {
-          email?: string
+          email?: string | null
           external_user_id?: string
           id?: string
           original_created_at?: string | null

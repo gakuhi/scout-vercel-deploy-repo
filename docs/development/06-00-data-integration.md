@@ -7,7 +7,7 @@
 ## 1. アーキテクチャ概要
 
 ```
-[同期ジョブ（Vercel Cron、サーバーサイドのみ）]
+[同期ジョブ（オンデマンド + 日次 Cron、サーバーサイドのみ）]
 
 面接AI (Supabase)     ←─ scout_reader ロール（SELECT のみ）
 企業分析AI (Supabase) ←─ scout_reader ロール（SELECT のみ）
@@ -31,6 +31,7 @@
 - **各プロダクトDBへの接続はサーバーサイドの同期ジョブのみ**（クライアントから直接アクセスしない）
 - **ユーザーが参照するのはスカウトDBのみ**（RLSで保護）
 - **差分同期**：前回の `synced_at` 以降の新規・更新分のみ取得
+- **同期トリガーはオンデマンド主体**：同時登録時・データ連携同意時・学生の手動リフレッシュ時に1ユーザー分を同期。日次 Cron は更新検知のフォールバック
 - **ユーザー突合はメールアドレス**で行う
 
 ### 二重の防御
@@ -46,30 +47,55 @@
 
 | プロダクト | DB基盤 | 接続方式 | read-only の実現方法 |
 |---|---|---|---|
-| **面接練習AI** | Supabase (PostgreSQL) | PostgreSQL 直接接続 | カスタムロール（`scout_reader`）を作成し SELECT 権限のみ付与 |
-| **企業分析AI** | Supabase (PostgreSQL) | PostgreSQL 直接接続 | 同上 |
+| **面接練習AI** | Supabase (PostgreSQL) | PostgreSQL Transaction Pooler（6543） | カスタムロール（`scout_reader`）を作成し SELECT 権限のみ付与 |
+| **企業分析AI** | Supabase (PostgreSQL) | PostgreSQL Transaction Pooler（6543） | 同上 |
 | **スマートES** | PlanetScale (MySQL) | `@planetscale/database`（HTTP経由） | ブランチパスワード作成時に Read-only ロール指定 |
 | **すごい就活** | Bubble | Bubble Data API | API 自体が読み取り専用 |
 
 ### Supabase（面接AI・企業分析AI）の read-only ロール作成
 
-各プロダクトの Supabase SQL Editor で1回実行する。
+各プロダクトの Supabase SQL Editor で1回実行する。GRANT 対象は **ETL が実際に読むテーブルに限定** する（`ALL TABLES` + `DEFAULT PRIVILEGES` だとプロダクト側が新規追加した機密テーブルにも権限が波及するため）。
 
+**面接練習AI**:
 ```sql
--- スカウト連携用の読み取り専用ロールを作成
 CREATE ROLE scout_reader WITH LOGIN PASSWORD 'secure_password_here';
-
--- public スキーマの全テーブルに SELECT 権限を付与
 GRANT USAGE ON SCHEMA public TO scout_reader;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO scout_reader;
 
--- 今後作成されるテーブルにも自動で SELECT 権限を付与
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO scout_reader;
+GRANT SELECT ON
+  user_profiles,
+  interview_sessions,
+  companies,
+  user_company_searches
+TO scout_reader;
 ```
 
-接続文字列: `postgresql://scout_reader:password@db.<project-ref>.supabase.co:5432/postgres`
+**企業分析AI**:
+```sql
+CREATE ROLE scout_reader WITH LOGIN PASSWORD 'secure_password_here';
+GRANT USAGE ON SCHEMA public TO scout_reader;
 
-※ Supabase JS クライアント（PostgREST）経由ではカスタムロールは使えない。PostgreSQL 直接接続のみ。
+GRANT SELECT ON
+  profiles,
+  researches,
+  research_messages
+TO scout_reader;
+```
+
+**`auth.users` への GRANT を行わない理由**:
+面接練習AI・企業分析AI ともにメールアドレスは `auth.users.email` にしか存在しないが、Supabase の仕様上 `auth` スキーマへの外部ロール（`scout_reader`）の `GRANT USAGE` は実質的に不可能（`auth` スキーマの所有者は `supabase_auth_admin`、`postgres` ロールは `USAGE WITH GRANT OPTION` を保持していないため WARNING のみ出して無視される）。そのため email は DB 直読みではなく、同時登録リダイレクトの URL パラメータ経由でプロダクト側サーバーから HMAC 署名付きで受け取る方式に統一する（詳細は [08-product-side-tasks.md](./08-product-side-tasks.md) のリダイレクトURL仕様）。
+
+### 接続方式: Transaction Pooler（6543）
+
+接続文字列の形式: `postgresql://scout_reader.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres`
+
+Supabase Dashboard → Settings → Database → **Connection pooling (Transaction mode)** に表示される接続文字列のユーザー名・パスワード部分を `scout_reader` 用に差し替える。
+
+**Direct Connection（5432）ではなく Transaction Pooler を採用する理由**:
+- スカウトは Vercel Serverless Functions から接続するため、Direct Connection だと関数実行ごとに接続を張って枯渇しやすい
+- Transaction Pooler 経由なら Supavisor が接続プールを管理し、プロダクト側 DB の接続数への影響を最小化できる
+- ETL は単純な SELECT + UPSERT のみで、Transaction Pooler の制約（prepared statement 不可、session 設定不可、LISTEN/NOTIFY 不可）に抵触しない。PostgreSQL クライアントは `prepare: false` オプションを付けて利用する
+
+※ Supabase JS クライアント（PostgREST）経由ではカスタムロールは使えない。PostgreSQL プロトコル接続のみ。
 
 ### PlanetScale（スマートES）の Read-only パスワード
 
@@ -92,39 +118,53 @@ Bubble Data API で取得。API 自体が読み取り専用であり、追加の
 
 ## 3. 同期ジョブ
 
-### 実行基盤: Vercel Cron
+### 同期トリガー
 
-Next.js の Route Handler を Vercel Cron で定期実行する。
+各プロダクトの同期は以下のタイミングで実行される。オンデマンドを主体とし、日次 Cron はフォールバック。
+
+| トリガー | 対象範囲 | タイミング |
+|---|---|---|
+| **同時登録時** | 呼び出し元プロダクトの当該ユーザー1名分 | プロダクト→スカウトの同時登録フロー中（LINE 認証完了後） |
+| **データ連携同意時** | 連携対象プロダクトの当該ユーザー1名分 | 学生がスカウト上で「データ連携に同意」した瞬間 |
+| **学生の手動リフレッシュ** | 連携対象プロダクトの当該ユーザー1名分 | 学生ダッシュボードの「最新データに更新」ボタン押下時 |
+| **日次バッチ** | 連携対象プロダクトの **同意済み全ユーザー分** | 毎日 03:00 JST に Vercel Cron で実行 |
+
+**日次バッチの役割**: プロダクト側で発生した更新のうち、オンデマンドの3トリガーで拾えない分（例: 学生がスカウトに再ログインしない期間に他プロダクトで発生した更新）をフォローする。差分同期なので負荷は小さい。
+
+### 実行基盤: Next.js Route Handler
+
+Next.js App Router の Route Handler を同期エンドポイントとして実装する。
 
 - 技術スタックが Next.js 内で統一される（別ランタイム不要）
-- 同期データ量は小さい（差分同期で数百〜数千行）ので Vercel Pro の関数実行時間制限（60秒）内に収まる
+- 差分同期なので1回あたりのデータ量は小さく、Vercel Pro の関数実行時間制限（60秒）内に収まる
 - チーム全員が Next.js を書ける前提なのでメンテしやすい
-- 将来データ量が増えてタイムアウトする場合は Supabase Edge Functions や Inngest 等に移行
+- 呼び出し元は以下の2系統:
+  - **オンデマンド**: スカウト内部のサーバーサイドコード（同時登録 API、同意完了 API、手動リフレッシュ API）から同期ロジックを呼ぶ
+  - **日次**: Vercel Cron から同じ Route Handler を叩く
 
-### 同期頻度
-
-| プロダクト | 頻度 | 理由 |
-|---|---|---|
-| 面接AI | 15分おき | |
-| 企業分析AI | 15分おき | |
-| スマートES | 15分おき | |
-| すごい就活 | 15分おき | Bubble API が遅いためリアルタイムは不可 |
-
-※ MVP 段階では全プロダクト15分おきの Cron ポーリングで統一する。Supabase Realtime（Database Webhook）によるリアルタイム同期は、read-only ロールでは利用できない（Realtime は Supabase JS クライアント + anon/service_role キー経由でのみ動作するため）。リアルタイム性が必要になった場合は、各プロダクト側に Database Webhook の設定を依頼するか、同期頻度を上げて対応する。
+※ Supabase Realtime（Database Webhook）によるリアルタイム同期は、read-only ロールでは利用できない（Realtime は Supabase JS クライアント + anon/service_role キー経由でのみ動作するため）。より低レイテンシが必要になった場合は、プロダクト側に Database Webhook 設定を依頼する方式への拡張を検討する。
 
 ### エンドポイント構成
 
-プロダクトごとに独立した Route Handler を持つ。各エンドポイントは `CRON_SECRET` で認証する。
+プロダクトごとに独立した Route Handler を持つ。
 
 | エンドポイント | ソース | 接続方式 |
 |---|---|---|
 | `POST /api/sync/smartes` | PlanetScale | `@planetscale/database`（HTTP） |
-| `POST /api/sync/interviewai` | Supabase (PostgreSQL) | PostgreSQL 直接接続 |
-| `POST /api/sync/compai` | Supabase (PostgreSQL) | PostgreSQL 直接接続 |
+| `POST /api/sync/interviewai` | Supabase | `postgres`（Transaction Pooler 6543経由） |
+| `POST /api/sync/compai` | Supabase | `postgres`（Transaction Pooler 6543経由） |
 | `POST /api/sync/sugoshu` | Bubble | Bubble Data API |
 
+リクエストボディで同期範囲を切り替える:
+- `{ "external_user_id": "..." }` → そのユーザーのみ同期（オンデマンド）
+- ボディなし → 同意済み全ユーザーを差分同期（日次バッチ）
+
+認証:
+- Cron 呼び出し: `Authorization: Bearer <CRON_SECRET>` ヘッダ
+- スカウト内部呼び出し: Route Handler 内で直接関数を import するか、内部 API の共通認証を利用
+
 ```
-src/lib/sync/smartes.ts       ← 取得・変換・書き込みロジック
+src/lib/sync/smartes.ts       ← 取得・変換・書き込みロジック（1ユーザー分 / 全ユーザー分の両対応）
 src/lib/sync/interviewai.ts
 src/lib/sync/compai.ts
 src/lib/sync/sugoshu.ts
@@ -140,31 +180,51 @@ src/app/api/sync/sugoshu/route.ts
 ```json
 {
   "crons": [
-    { "path": "/api/sync/smartes",     "schedule": "*/15 * * * *" },
-    { "path": "/api/sync/interviewai", "schedule": "*/15 * * * *" },
-    { "path": "/api/sync/compai",      "schedule": "*/15 * * * *" },
-    { "path": "/api/sync/sugoshu",     "schedule": "*/15 * * * *" }
+    { "path": "/api/sync/smartes",     "schedule": "0 18 * * *" },
+    { "path": "/api/sync/interviewai", "schedule": "0 18 * * *" },
+    { "path": "/api/sync/compai",      "schedule": "0 18 * * *" },
+    { "path": "/api/sync/sugoshu",     "schedule": "0 18 * * *" }
   ]
 }
 ```
 
+※ Vercel Cron は UTC 指定。`0 18 * * *` = 毎日 03:00 JST。
+
 ### 同期フロー
 
+**オンデマンド同期（1ユーザー分）**:
 ```
-Vercel Cron（毎15分）
-    → POST /api/sync/{product}（Route Handler）
-    → CRON_SECRET で認証
-    → 各プロダクト DB から SELECT（Read-only）
-    → レコードを synced_* テーブルの形に変換
+トリガー（同時登録 / 同意 / 手動リフレッシュ）
+    → POST /api/sync/{product} { external_user_id }
+    → プロダクト DB から当該ユーザー分を SELECT（read-only）
+    → synced_* テーブルの形に変換
     → スカウト Supabase に UPSERT（Service Role Key）
+    → 呼び出し元に完了/失敗を返す（同期的）
+```
+
+**日次同期（同意済み全ユーザー分）**:
+```
+Vercel Cron（毎日 03:00 JST）
+    → POST /api/sync/{product}（ボディなし）
+    → CRON_SECRET で認証
+    → student_product_links から同意済みユーザーの external_user_id 一覧を取得
+    → プロダクト DB から差分 SELECT（前回 synced_at 以降）
+    → synced_* テーブルに UPSERT
     → 結果を JSON で返す
 ```
+
+### ユーザー体験上の注意点
+
+- **同時登録・同意時の同期**: 学生を待たせる状態で実行されるため、レスポンス時間が UX に直結する。Bubble（すごい就活）は 1リクエスト 2-3秒かかるため、同時登録時は最小限のプロフィール取得にとどめ、本格的な同期は登録完了後のバックグラウンドに回す等の検討が必要
+- **手動リフレッシュ**: ローディング表示を出し、同期中は重複クリックを無効化する
+- **同意前のユーザー**: プロダクト DB から一切取得しない（プライバシー・契約上の配慮）
 
 ### エラーハンドリング
 
 - 各プロダクトの同期は独立したエンドポイント。1つが失敗しても他に影響しない
 - 各エンドポイント内でもテーブルごとに `Promise.allSettled` で独立実行
-- 失敗時はログを記録し、次回の Cron 実行でリトライ
+- オンデマンド同期の失敗: 呼び出し元にエラーを伝え、ユーザーに「データ取得に失敗しました。もう一度お試しください」を表示。部分成功（一部テーブルだけ取得できた）は `synced_at` を更新せず次回リトライ可能にしておく
+- 日次 Cron の失敗: ログに記録し、次回実行でリトライ
 - 連続失敗時はアラート通知（Vercel Logs または Supabase の `audit_logs`）
 
 ---
@@ -175,36 +235,40 @@ Vercel Cron（毎15分）
 
 ### 4.1 面接練習AI（interviewai）
 
-**元テーブル**: `users` + `user_profiles`, `interview_sessions` + `companies`, `user_company_searches` + `companies`
+**元テーブル**: `user_profiles`, `interview_sessions` + `companies`, `user_company_searches` + `companies`
+
+※ 面接練習AI には `public.users` テーブルが存在せず、`user_profiles` にもメールアドレス列がない。`auth.users` からも読めない（Supabase の仕様上 `auth` スキーマへの外部ロール GRANT 不可）ため、email は同時登録リダイレクトの URL パラメータ経由でプロダクト側から受け取る（[08-product-side-tasks.md](./08-product-side-tasks.md) 参照）。`external_user_id` と `original_created_at` は各プロダクト側の子テーブル（`interview_sessions.user_id` / `interview_sessions.created_at` など）から導出可能なため、DB 直読みでは email を含まない。
 
 #### → `synced_interviewai_users`
 
-| 元カラム | synced_* カラム | 用途 |
+| ソース | synced_* カラム | 用途 |
 |---|---|---|
-| `users.id` | `external_user_id` | 突合キー |
-| `users.email` | `email` | メール突合 |
-| `users.created_at` | `original_created_at` | |
+| リダイレクトパラメータ `source_user_id` | `external_user_id` | 突合キー |
+| リダイレクトパラメータ `email` | `email` | メール突合（HMAC署名で改ざん防止） |
+| （取得不可） | `original_created_at` | DB から取得できないため NULL 許容とするか、同期初回受信時のタイムスタンプで代用 |
 
 #### → `synced_interviewai_sessions`（`interview_sessions` ⨝ `companies`）
+
+※ `interview_type` は**別テーブルではなく** `interview_sessions.interview_type` JSONB カラム。PostgreSQL の JSONB 演算子 `->>` で属性参照する（`interview_sessions.interview_type->>'type'` のように）。
 
 | 元カラム | synced_* カラム | マッチングでの用途 |
 |---|---|---|
 | `interview_sessions.id` | `external_session_id` | |
 | `interview_sessions.user_id` | `external_user_id` | 突合キー |
 | `companies.name`（JOIN） | `company_name` | 志望企業の傾向 |
-| `interview_type.type` | `session_type` | 個人/集団/GD |
-| `interview_type.industry` | `industry` | 志望業界シグナル |
-| `interview_type.phase` | `phase` | 就活の進捗度 |
+| `interview_sessions.interview_type->>'type'` | `session_type` | 個人/集団/GD |
+| `interview_sessions.interview_type->>'industry'` | `industry` | 志望業界シグナル |
+| `interview_sessions.interview_type->>'phase'` | `phase` | 就活の進捗度 |
 | `evaluation_data.overallScore` | `overall_score` (INT) | 面接力の定量指標 |
-| `evaluation_data.categories.*.score` | `skill_scores` (JSONB) | カテゴリ別スコア（logicalStructure / qaSkill / responseContent） |
-| `evaluation_data.strengths` | `strengths` (JSONB) | 強み |
-| `evaluation_data.areasForImprovement` | `areas_for_improvement` (JSONB) | 改善点 |
+| `evaluation_data.categories` | `skill_scores` (JSONB) | カテゴリ別スコア + 強み + 改善点（`qaSkill` / `responseContent` / `logicalStructure` 各々に `score`, `strengths`, `improvements` を保持）。JSON をそのままコピー |
+| `evaluation_data.strengths` | `strengths` (JSONB) | 全体の強み |
+| `evaluation_data.areasForImprovement` | `areas_for_improvement` (JSONB) | 全体の改善点 |
 | `evaluation_data.growthHint` | `growth_hint` | 成長アドバイス |
 | `conversation_text` | `conversation_text` (JSONB) | 会話トランスクリプト |
 | `interview_sessions.started_at` | `started_at` | |
 | `interview_sessions.created_at` | `original_created_at` | |
 
-**取得しないデータ**: `generative_ai_config`（システム設定。マッチングに無関係）
+**取得しないデータ**: `generative_ai_config`（システム設定）、`evaluation_data.nextSteps`（次回練習ステップ提案。学生個人の練習用でマッチング無関係）、`evaluation_data.recommendFrequency`（推奨練習頻度。同上）、`evaluation_data.evaluatedAt` / `evaluation_data.evaluationModel`（評価メタ情報）
 
 #### → `synced_interviewai_searches`（`user_company_searches` ⨝ `companies`）
 
@@ -213,19 +277,21 @@ Vercel Cron（毎15分）
 | `user_company_searches.id` | `external_search_id` | |
 | `user_company_searches.user_id` | `external_user_id` | 突合キー |
 | `companies.name`（JOIN） | `company_name` | 興味のある企業 |
-| `user_company_searches.created_at` | `searched_at` | |
+| `user_company_searches.searched_at` | `searched_at` | |
 
 ### 4.2 企業分析AI（compai）
 
 **元テーブル**: `profiles`, `researches`, `research_messages`
 
+※ `profiles` に email 列が存在せず、`auth.users` も Supabase 仕様により外部ロールから読めないため、email は同時登録リダイレクトのURLパラメータ経由で取得する（面接AI と同様、[08-product-side-tasks.md](./08-product-side-tasks.md) 参照）。`profiles.id` は内部採番の `bigint` だが、`profiles.user_id` が `auth.users.id` と同じ UUID で FK されているため、リダイレクトの `source_user_id` は `profiles.user_id` と突合する（`researches.user_id` / `research_messages` 経由も同じ UUID）。
+
 #### → `synced_compai_users`
 
-| 元カラム | synced_* カラム | 用途 |
+| ソース | synced_* カラム | 用途 |
 |---|---|---|
-| `profiles.id` | `external_user_id` | 突合キー |
-| `profiles.email` | `email` | メール突合 |
-| `profiles.created_at` | `original_created_at` | |
+| リダイレクトパラメータ `source_user_id`（= `profiles.user_id` = `auth.users.id`） | `external_user_id` | 突合キー |
+| リダイレクトパラメータ `email` | `email` | メール突合（HMAC署名で改ざん防止） |
+| `profiles.created_at` | `original_created_at` | `profiles` は GRANT 済みなので DB から取得 |
 
 #### → `synced_compai_researches`
 
@@ -237,12 +303,11 @@ Vercel Cron（毎15分）
 | `researches.url` | `url` | |
 | `researches.content` | `content` | AI分析結果 |
 | `researches.raw_content` | `raw_content` | 元の生データ |
-| `researches.citations` | `citations` (JSONB) | 引用元 |
 | `researches.is_bookmarked` | `is_bookmarked` | |
 | `researches.status` | `status` | |
 | `researches.created_at` | `original_created_at` | |
 
-**取得しないデータ**: `perplexity_id`, `model`, `tokens_used`, `plan_tier`（システム内部情報）、`deleted_at IS NOT NULL` のレコードはETLで除外
+**取得しないデータ**: `perplexity_id`, `model`, `tokens_used`, `plan_tier`（システム内部情報）、`citations`（実データは配列ではなく URL 単体を JSON string で保持しており、マッチングでの利用価値が低いため除外。`synced_compai_researches.citations` カラムは残すが ETL では書き込まない）、`deleted_at IS NOT NULL` のレコードはETLで除外
 
 #### → `synced_compai_messages`
 
@@ -252,7 +317,7 @@ Vercel Cron（毎15分）
 | `research_messages.research_id` | `external_research_id` | research紐付け |
 | `researches.user_id`（JOIN） | `external_user_id` | 突合キー |
 | `research_messages.content` | `content` | 質問内容 |
-| `research_messages.role` | `sender_type` | user / assistant |
+| `research_messages.sender_type` | `sender_type` | user / assistant |
 | `research_messages.created_at` | `original_created_at` | |
 
 **取得しないデータ**: `model`, `tokens_used`（システム内部情報）、`feedback`（UI用フィードバック）
@@ -307,45 +372,63 @@ Vercel Cron（毎15分）
 
 ### 4.4 すごい就活（sugoshu）
 
-**元テーブル**: `user` + `user_profile`, `resumeDraft`, 診断テーブル
+**元テーブル**: `User` + `UserProfile`, `ResumeDraft`, `UserDiagnosisSession`（Bubble Data API の型名）
 
-#### → `synced_sugoshu_users`（`user` ⨝ `user_profile`）
+probe 結果（2026-04-22 時点）から、Data API で有効化されている型のうち連携候補は `User` / `UserProfile` / `ResumeDraft` / `UserDiagnosisSession` / `CMMessage` / `CMQuestion`。前4つを ETL 対象とする。`CMMessage` / `CMQuestion` はチャット診断のやり取りで、統合プロフィールに必要であれば `UserDiagnosisSession` 経由で参照する方針（初版では未連携）。
+
+**ユーザー突合**: `User.authentication.email.email`（Bubble 組み込み）は Data API privacy rules で外部に読めない想定。代わりに同時登録フロー時に state にメールアドレスを含めて受け取り、`student_product_links.external_user_id` に `User._id` を保存する方式で運用する（Bubble 側からの email 取得は不要）。
+
+**probe で判明した件数（2026-04-22）**:
+- `User` 518 / `UserProfile` 520 / `ResumeDraft` 655 / `UserDiagnosisSession` 1,064
+- `ResumeDraft.self_pr` が非空なのは 139件（21%）のみ → マッチング対象母集団が限定される前提で設計
+- `UserDiagnosisSession.result_vector` が非空なのは 756件（71%）
+
+#### → `synced_sugoshu_users`（`User` ⨝ `UserProfile`）
 
 | 元カラム | synced_* カラム | 用途 |
 |---|---|---|
-| `user.id` | `external_user_id` | 突合キー |
-| `user.email` | `email` | メール突合 |
-| `user.created_at` | `original_created_at` | |
+| `User._id` | `external_user_id` | 突合キー（同時登録の state に含めて受け取る） |
+| state 経由で受ける email | `email` | メール突合 |
+| `User.Created Date` | `original_created_at` | |
 
 #### → `synced_sugoshu_resumes`
 
+`ResumeDraft` は本文系（`self_pr` / `motivation` / `hobby_skill` / `personal_request`）だけでなく、氏名・住所・生年月日・連絡先・学歴 JSON・資格 JSON 等のフル PI を保持している。`UserProfile` と重複する項目が多いが、片方にしか無い情報もあるため両方同期する。
+
 | 元カラム | synced_* カラム | マッチングでの用途 |
 |---|---|---|
-| `resumeDraft.id` | `external_resume_id` | |
-| `resumeDraft.user_id` | `external_user_id` | 突合キー |
-| `resumeDraft.content` | `content` | 履歴書内容（自己PR・ガクチカ） |
+| `ResumeDraft._id` | `external_resume_id` | |
+| `ResumeDraft.Created By` | `external_user_id` | 突合キー（User への参照。`User._id` と一致） |
+| `ResumeDraft.self_pr` | `content` | 自己PR本文（マッチングの主材料） |
+| `ResumeDraft.motivation` / `hobby_skill` / `personal_request` | `content` に結合 or 別カラム（後述） | 志望動機・趣味特技・その他要望 |
+| `ResumeDraft.educations_json` / `certifications_json` | （今後検討） | 学歴・資格情報 |
+
+**本文の格納方針**: `synced_sugoshu_resumes.content` は現状 TEXT 1カラムなので、複数本文フィールドをラベル付きで連結して格納する（例: `"【自己PR】...\n\n【志望動機】...\n\n【趣味特技】..."`）。学歴・資格 JSON を別カラム or JSONB で扱うかは Phase B 実装時に再検討。
 
 #### → `synced_sugoshu_diagnoses`
 
 | 元カラム | synced_* カラム | マッチングでの用途 |
 |---|---|---|
-| 診断ID | `external_diagnosis_id` | |
-| ユーザーID | `external_user_id` | 突合キー |
-| 診断結果（SPI模試スコア・自己分析等含む） | `diagnosis_data` (JSONB) | 基礎学力・自己理解 |
+| `UserDiagnosisSession._id` | `external_diagnosis_id` | |
+| `UserDiagnosisSession.Created By` | `external_user_id` | 突合キー（User への参照） |
+| `UserDiagnosisSession.result_vector` | `diagnosis_data` (JSONB) | 診断結果ベクトル（中身の構造は実データを見てから統合プロフィール生成に使う） |
+| `UserDiagnosisSession.completed_at` / `Slug` | 同上 JSONB にまとめる | 完了日時・診断種別 |
 
 ---
 
 ## 5. ユーザー突合
 
-**方式**: メールアドレスで突合
+**方式**: メールアドレスで突合。ただし email の取得経路はプロダクトごとに異なる。
 
 ```
-[面接AI]      auth.users.email ──┐
-[企業分析AI]  auth.users.email ──┼──→ students.email で照合
-[スマートES]  users.email ───────┤     → student_product_links に記録
-[すごい就活]  User.email ────────┘
+[面接AI]      リダイレクトパラメータ email  ──┐
+[企業分析AI]  リダイレクトパラメータ email  ──┼──→ students.email で照合
+[スマートES]  users.email (DB 直読み) ──────┤     → student_product_links に記録
+[すごい就活]  User.email  (Bubble API)  ────┘
 ```
 
+- 面接AI・企業分析AI: Supabase `auth.users` は外部ロールから読めないため、同時登録時のリダイレクトURLに含まれる `email` パラメータ（HMAC 署名付き）を信頼する
+- スマートES・すごい就活: プロダクト DB / API から直接 email を取得できる
 - 一致するメールアドレスがあれば `student_product_links` にレコードを作成
 - `product` カラムに `interviewai` / `compai` / `smartes` / `sugoshu` を記録（`product_source` enum）
 - `synced_*` テーブル prefix・Route Handler パスと同じ命名で統一
@@ -379,30 +462,35 @@ Vercel Cron（毎15分）
 
 ## 6. 同意フローとデータ公開制御
 
-### 方針: 事前同期 + 同意後公開
+### 方針: 同意時に初回同期 + 日次更新 + ユーザーリクエスト時の再同期
 
-全ユーザーのデータを同意の有無にかかわらず事前に同期しておく。同意前のデータは企業に開示しない。
+学生がデータ連携に同意した瞬間に初回同期を実行する。以降はユーザーアクション（同時登録・手動リフレッシュ）および日次 Cron で更新する。**同意前のユーザーのデータはプロダクト DB から取得しない**。
 
 ```
-[バックグラウンド: 常時]
-全ユーザーのデータを synced_* テーブルに同期し続ける
-  → 企業からは見えない状態
-
-[学生が同意した瞬間]
+[学生がデータ連携に同意した瞬間]
 data_consent_granted_at を記録
+  → /api/sync/{product} をオンデマンド実行（1ユーザー分）
   → 統合プロフィール生成をトリガー（Claude API）
   → RLS により企業から閲覧可能に
+
+[日次バッチ]
+同意済み全ユーザーのデータを差分同期
+  → 更新があれば統合プロフィール再生成
+
+[学生の任意タイミング]
+ダッシュボードの「最新データに更新」ボタン
+  → /api/sync/{product} をオンデマンド実行
 ```
 
-- 同意の瞬間にデータ取得を待つ必要がない（UXが良い）
-- 同期処理と同意フローが完全に分離（実装がシンプル）
-- 同期の失敗・リトライがユーザー体験に影響しない
+- 同意していないユーザーのデータはプロダクト DB から取得しない（プライバシー・契約上クリア）
+- 同意した瞬間にすぐ企業に公開可能（統合プロフィール生成までの遅延は Claude API の処理時間のみ）
+- 日次バッチがフォールバックとして機能し、ユーザー行動に依存しない更新も拾える
 
 ### プライバシー上の注意
 
-- 利用規約・プライバシーポリシーに「データ連携準備のため同期する。同意前は企業に開示しない」旨を明記すること
+- 利用規約・プライバシーポリシーに「同意時および以降の同期タイミングでプロダクト DB からデータを取得する」旨を明記すること
 - RLS ポリシーで `data_consent_granted_at IS NOT NULL` の学生データのみ企業が閲覧可能にする
-- 学生が同意を撤回した場合は `data_consent_granted_at` を NULL に戻し、統合プロフィールを削除する
+- 学生が同意を撤回した場合は `data_consent_granted_at` を NULL に戻し、統合プロフィールを削除する。以降、日次バッチの同期対象からも外れる
 
 ---
 
@@ -539,18 +627,21 @@ Claude が各学生のマッチ度スコア + 理由を返す
 
 ## 10. 環境変数
 
+環境変数名はプロダクト識別子（`source` enum: `smartes` / `interviewai` / `compai` / `sugoshu`）に揃えてある。
+
 | 変数名 | 用途 |
 |---|---|
-| `INTERVIEW_AI_DB_URL` | 面接AI DB 直接接続（scout_reader ロール） |
-| `COMPANY_ANALYSIS_DB_URL` | 企業分析AI DB 直接接続（scout_reader ロール） |
+| `NEXT_PUBLIC_SUPABASE_URL` | スカウトサービス Supabase URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | スカウトサービス service_role キー（同期ジョブの書き込み用） |
+| `INTERVIEWAI_DB_URL` | 面接AI DB Transaction Pooler 接続（`scout_reader` ロール、6543） |
+| `COMPAI_DB_URL` | 企業分析AI DB Transaction Pooler 接続（`scout_reader` ロール、6543） |
 | `SMARTES_PS_HOST` | PlanetScale ホスト |
 | `SMARTES_PS_USER` | PlanetScale ユーザー名（Read-only） |
 | `SMARTES_PS_PASS` | PlanetScale パスワード（Read-only） |
-| `SUGOKATSU_BUBBLE_API_KEY` | Bubble API キー |
-| `SUGOKATSU_BUBBLE_APP_ID` | Bubble アプリ ID |
+| `SUGOSHU_BUBBLE_API_KEY` | Bubble Data API トークン（Settings → API → API Tokens で発行） |
+| `SUGOSHU_BUBBLE_API_URL` | Bubble Data API ルート（末尾 `/obj` まで含める）。例: `https://sugoshu.kokoshiro.jp/version-test/api/1.1/obj` |
 | `ANTHROPIC_API_KEY` | Claude API キー（統合プロフィール生成・マッチング） |
-| `SUPABASE_URL` | スカウトサービス Supabase URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | スカウトサービス service_role キー（同期ジョブの書き込み用） |
+| `CRON_SECRET` | Vercel Cron 認証用 Bearer トークン（日次同期ジョブ） |
 
 ---
 
