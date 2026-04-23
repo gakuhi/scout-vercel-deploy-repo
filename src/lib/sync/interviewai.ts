@@ -236,7 +236,7 @@ export async function syncAllConsented(): Promise<SyncAllResult> {
   return result;
 }
 
-function dateToIso(v: Date | null): string | null {
+export function dateToIso(v: Date | null): string | null {
   return v instanceof Date ? v.toISOString() : null;
 }
 

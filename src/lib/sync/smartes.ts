@@ -235,14 +235,14 @@ export async function syncAllConsented(): Promise<SyncAllResult> {
   return result;
 }
 
-function toIsoOrNull(v: unknown): string | null {
+export function toIsoOrNull(v: unknown): string | null {
   if (v instanceof Date) return v.toISOString();
   if (typeof v !== "string") return null;
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-function toIntOrNull(v: unknown): number | null {
+export function toIntOrNull(v: unknown): number | null {
   if (typeof v === "number") return v;
   if (typeof v === "string") {
     const n = Number.parseInt(v, 10);

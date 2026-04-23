@@ -41,7 +41,7 @@ type BubbleUser = BubbleRecord & {
   "Created Date"?: string;
 };
 
-type BubbleResumeDraft = BubbleRecord & {
+export type BubbleResumeDraft = BubbleRecord & {
   _id: string;
   "Created By"?: string;
   "Created Date"?: string;
@@ -313,7 +313,7 @@ async function fetchBubbleListByUser<T extends BubbleRecord>(
 // 変換ヘルパー
 // =============================================================
 
-function buildResumeContent(d: BubbleResumeDraft): string | null {
+export function buildResumeContent(d: BubbleResumeDraft): string | null {
   const parts: string[] = [];
   if (d.self_pr?.trim()) parts.push(`【自己PR】\n${d.self_pr.trim()}`);
   if (d.motivation?.trim()) parts.push(`【志望動機】\n${d.motivation.trim()}`);
@@ -324,7 +324,7 @@ function buildResumeContent(d: BubbleResumeDraft): string | null {
   return parts.length > 0 ? parts.join("\n\n") : null;
 }
 
-function toIsoOrNull(v: unknown): string | null {
+export function toIsoOrNull(v: unknown): string | null {
   if (typeof v !== "string") return null;
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
