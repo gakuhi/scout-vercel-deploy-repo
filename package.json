@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@planetscale/database": "^1.20.1",
-    "@sentry/nextjs": "^10.47.0",
+    "@sentry/nextjs": "^10.49.0",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.101.1",
     "jose": "^6.2.2",
