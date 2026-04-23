@@ -15,29 +15,41 @@
 | 新規登録フロー | 新規登録される学生 | 「スカウトサービスも利用する」チェックボックス |
 | 設定画面・ダッシュボード | 既存の学生 | 「スカウトサービスと連携する」ボタン |
 
-ボタン押下時、以下のURLへリダイレクトしていただきます:
+ボタン押下時、**HTML form を POST 送信** していただきます。`<a href>` による GET リクエストは受け付けません（PII である email を URL に載せないため）。
 
-```
-https://{スカウトのドメイン}/api/student/auth/line
-  ?source={プロダクト識別子}
-  &source_user_id={プロダクト側のユーザーID}
-  &email={ログイン中ユーザーのメールアドレス}
-  &callback_url={連携完了後の戻り先URL}
-  &signature={HMAC-SHA256署名}
+```html
+<form method="POST" action="https://{スカウトのドメイン}/api/student/auth/line">
+  <input type="hidden" name="source" value="{プロダクト識別子}">
+  <input type="hidden" name="source_user_id" value="{プロダクト側のユーザーID}">
+  <input type="hidden" name="email" value="{ログイン中ユーザーのメールアドレス}">
+  <input type="hidden" name="callback_url" value="{連携完了後の戻り先URL}">
+  <input type="hidden" name="signature" value="{HMAC-SHA256署名}">
+  <button type="submit">スカウトサービスと連携する</button>
+</form>
 ```
 
-| パラメータ | 内容 |
+クリックを省略して自動遷移させたい場合は、ページ読み込み時に JavaScript で submit する実装も可:
+
+```html
+<form method="POST" action="..." id="scout-redirect"> ... </form>
+<script>document.getElementById("scout-redirect").submit();</script>
+```
+
+| body パラメータ | 内容 |
 |---|---|
 | `source` | プロダクト識別子（下記参照） |
 | `source_user_id` | プロダクト側のユーザーID |
-| `email` | ログイン中ユーザーのメールアドレス（URL エンコード必須）。**optional** — プロダクト側で保持していない場合は省略可、または空文字 `email=` を送信してください |
+| `email` | ログイン中ユーザーのメールアドレス。**optional** — プロダクト側で保持していない場合は省略可、または空文字で送信してください |
 | `callback_url` | 連携完了後にリダイレクトバックされるURL |
 | `signature` | HMAC-SHA256署名（後述） |
 
 **`email` を渡す理由**:
-スカウト側では既存学生との突合にメールアドレスを使用します。Supabase プロダクト（面接練習AI・企業分析AI）の場合、メールアドレスは `auth.users.email` に保持されていますが、Supabase の仕様上 `auth` スキーマへの外部ロール GRANT が不可能なため、DB 直読みではなくリダイレクトパラメータ経由でお渡しいただく方式にしています。プロダクト側サーバーではログイン中ユーザーのメールアドレスを既に保持しているため、URL に付与するだけでお渡しいただけます。改ざん防止は `signature` で担保します。
+スカウト側では既存学生との突合にメールアドレスを使用します。Supabase プロダクト（面接練習AI・企業分析AI）の場合、メールアドレスは `auth.users.email` に保持されていますが、Supabase の仕様上 `auth` スキーマへの外部ロール GRANT が不可能なため、DB 直読みではなくリダイレクトパラメータ経由でお渡しいただく方式にしています。プロダクト側サーバーではログイン中ユーザーのメールアドレスを既に保持しているため、form に含めるだけでお渡しいただけます。改ざん防止は `signature` で担保します。
 
 `email` が存在しない／取得できないユーザーの場合は省略または空文字で送信してください（スカウト側では LINE プロフィールの email へフォールバックします）。
+
+**なぜ POST なのか**:
+email は個人情報（PII）で、GET クエリで送るとブラウザ履歴・サーバーアクセスログ・Referer ヘッダ等で漏洩します。body に載せることで URL に出さず、ブラウザ履歴にも残しません。
 
 プロダクト識別子:
 

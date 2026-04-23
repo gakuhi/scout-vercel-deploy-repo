@@ -24,11 +24,12 @@ const ALLOWED_CALLBACK_ORIGINS = [
 ].filter(Boolean) as string[];
 
 /**
- * 外部プロダクトからの同時登録リクエストのクエリパラメータ
+ * 外部プロダクトからの同時登録リクエストのパラメータ
  *
- * source がある場合のみ使用（直接ログインでは不要）
+ * POST /api/student/auth/line の form body として受け取る。
+ * 直接ログイン（GET, source なし）では使わない。
  */
-export const registerQuerySchema = z.object({
+export const registerParamsSchema = z.object({
   source: productSourceSchema,
   source_user_id: z.string().min(1, "source_user_id is required"),
   // email は optional（プロダクト側でユーザーの email を保持していないケースを許容）。
@@ -52,4 +53,4 @@ export const registerQuerySchema = z.object({
   signature: z.string().min(1, "signature is required"),
 });
 
-export type RegisterQuery = z.infer<typeof registerQuerySchema>;
+export type RegisterParams = z.infer<typeof registerParamsSchema>;
