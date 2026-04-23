@@ -22,8 +22,23 @@ const navItems: NavItem[] = [
   { href: "/company/settings", label: "企業プロフィール", icon: "corporate_fare" },
 ];
 
-export function Sidebar() {
+const roleLabels: Record<string, string> = {
+  owner: "オーナー",
+  admin: "管理者",
+  member: "メンバー",
+};
+
+export type SidebarUser = {
+  name: string;
+  role: string;
+};
+
+export function Sidebar({ user }: { user?: SidebarUser }) {
   const pathname = usePathname();
+  const displayName = user?.name || "ユーザー";
+  const displayRole = user?.role ? (roleLabels[user.role] ?? user.role) : "";
+  const initial = displayName.charAt(0);
+
   return (
     <aside className="bg-primary-container text-white h-screen w-64 fixed left-0 top-0 shadow-2xl flex flex-col py-6 z-50">
       <div className="px-6 mb-8">
@@ -57,11 +72,13 @@ export function Sidebar() {
       <div className="px-6 mt-auto pt-6 border-t border-white/5">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-primary grid place-items-center text-xs font-bold">
-            田
+            {initial}
           </div>
           <div className="text-xs">
-            <p className="font-bold">田中 健一</p>
-            <p className="text-primary-fixed/50">採用責任者</p>
+            <p className="font-bold">{displayName}</p>
+            {displayRole && (
+              <p className="text-primary-fixed/50">{displayRole}</p>
+            )}
           </div>
         </div>
       </div>
