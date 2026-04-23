@@ -81,3 +81,34 @@ export function isValidCronRequest(headers: Headers): boolean {
   const auth = headers.get("authorization");
   return auth === `Bearer ${secret}`;
 }
+
+/**
+ * プロダクト識別子から対応する syncUser を呼び分ける共通ディスパッチャ。
+ *
+ * 同時登録 callback など、プロダクトを動的に受け取って同期したいケースで使う。
+ * 各 sync モジュールを動的 import することで、ビルド時の不要依存を避けつつ
+ * 呼び出し側を1関数に集約する。
+ */
+export async function runSyncUser(
+  product: ProductSource,
+  externalUserId: string,
+): Promise<SyncUserResult> {
+  switch (product) {
+    case "smartes": {
+      const { syncUser } = await import("./smartes");
+      return syncUser(externalUserId);
+    }
+    case "interviewai": {
+      const { syncUser } = await import("./interviewai");
+      return syncUser(externalUserId);
+    }
+    case "compai": {
+      const { syncUser } = await import("./compai");
+      return syncUser(externalUserId);
+    }
+    case "sugoshu": {
+      const { syncUser } = await import("./sugoshu");
+      return syncUser(externalUserId);
+    }
+  }
+}

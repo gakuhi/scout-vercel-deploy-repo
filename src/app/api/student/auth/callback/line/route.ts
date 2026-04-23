@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { exchangeCodeForTokens, verifyIdToken } from "@/lib/line/token";
 import { decryptState, type StatePayload } from "@/lib/line/state";
 import { AUTH_ROUTES, STUDENT_ROUTES } from "@/shared/constants/auth";
+import { runSyncUser } from "@/lib/sync/shared";
+import { productSourceSchema } from "@/features/auth/schemas";
 import type { Database } from "@/shared/types/database";
 
 /**
@@ -297,6 +299,32 @@ async function handleProductRegistration(
       },
       { onConflict: "student_id" },
     );
+
+    // 同時登録直後に当該プロダクトのデータを同期（synced_{product}_* への UPSERT）。
+    // sync 失敗は登録フロー全体を止めない（link は既に作成済み。日次 Cron でリトライされる）。
+    // state.origin は string 型なので zod で ProductSource に narrow してから呼ぶ。
+    const productParsed = productSourceSchema.safeParse(state.origin);
+    if (productParsed.success) {
+      try {
+        const syncResult = await runSyncUser(
+          productParsed.data,
+          state.sourceUserId,
+        );
+        if (!syncResult.ok) {
+          console.error(
+            "[LINE callback] sync partial failure",
+            productParsed.data,
+            syncResult.errors,
+          );
+        }
+      } catch (err) {
+        console.error(
+          "[LINE callback] sync threw",
+          productParsed.data,
+          err,
+        );
+      }
+    }
   }
 
   // 元プロダクトにリダイレクトバック
