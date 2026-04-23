@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
 
   let origin: string;
   let sourceUserId: string | undefined;
+  let email: string | undefined;
   let callbackUrl: string | undefined;
 
   if (hasSource) {
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
     const parsed = registerQuerySchema.safeParse({
       source: searchParams.get("source"),
       source_user_id: searchParams.get("source_user_id"),
+      email: searchParams.get("email"),
       callback_url: searchParams.get("callback_url"),
       signature: searchParams.get("signature"),
     });
@@ -39,12 +41,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { source, source_user_id, callback_url, signature } = parsed.data;
+    const {
+      source,
+      source_user_id,
+      email: emailParam,
+      callback_url,
+      signature,
+    } = parsed.data;
 
-    // HMAC署名検証
+    // email は未指定 / 空文字 / 有効 email のいずれか。
+    // HMAC 検証では空文字として連結する契約（プロダクト側も同様に空文字で署名する）。
+    const emailForHmac = emailParam ?? "";
+
     const isValid = verifyHmacSignature(
       source,
       source_user_id,
+      emailForHmac,
       callback_url,
       signature,
     );
@@ -58,6 +70,9 @@ export async function GET(request: NextRequest) {
 
     origin = source;
     sourceUserId = source_user_id;
+    // state には空文字ではなく undefined を格納する。callback 側の
+    // `state.email ?? lineUser.email` が LINE の email にフォールバックできるようにするため。
+    email = emailForHmac.length > 0 ? emailForHmac : undefined;
     callbackUrl = callback_url;
   } else {
     // --- 直接ログイン ---
@@ -69,6 +84,7 @@ export async function GET(request: NextRequest) {
   const state = encryptState({
     origin,
     sourceUserId,
+    email,
     callbackUrl,
     csrfToken,
     expiresAt: Math.floor(Date.now() / 1000) + 600, // 10分

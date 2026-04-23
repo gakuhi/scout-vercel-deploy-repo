@@ -36,15 +36,19 @@ function getSecretForSource(source: string): string {
 /**
  * HMAC-SHA256 署名を生成
  *
- * 署名対象: source + source_user_id + callback_url を連結
+ * 署名対象: source + source_user_id + email + callback_url を連結
+ * email を含めるのは、プロダクト側から渡される email の改ざん防止のため
+ * （Supabase プロダクトでは auth.users を DB 直読みできず、email は URL パラメータ
+ * 経由で受け取る設計。docs/development/08-product-side-tasks.md を参照）。
  */
 export function generateHmacSignature(
   source: string,
   sourceUserId: string,
+  email: string,
   callbackUrl: string,
   secret: string,
 ): string {
-  const data = `${source}${sourceUserId}${callbackUrl}`;
+  const data = `${source}${sourceUserId}${email}${callbackUrl}`;
   return createHmac("sha256", secret).update(data).digest("hex");
 }
 
@@ -56,6 +60,7 @@ export function generateHmacSignature(
 export function verifyHmacSignature(
   source: string,
   sourceUserId: string,
+  email: string,
   callbackUrl: string,
   signature: string,
 ): boolean {
@@ -63,6 +68,7 @@ export function verifyHmacSignature(
   const expected = generateHmacSignature(
     source,
     sourceUserId,
+    email,
     callbackUrl,
     secret,
   );

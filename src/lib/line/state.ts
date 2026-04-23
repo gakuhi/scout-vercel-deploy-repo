@@ -12,6 +12,10 @@ export interface StatePayload {
   origin: string;
   /** プロダクト側のユーザーID（origin が "direct" の場合は undefined） */
   sourceUserId?: string;
+  /** プロダクト側から渡された email（origin が "direct" の場合は undefined）。
+   *  LINE プロフィールの email より優先して students.email に使う。
+   *  改ざん防止は start エンドポイントで HMAC 検証済み。 */
+  email?: string;
   /** 登録完了後の戻り先URL（origin が "direct" の場合は undefined） */
   callbackUrl?: string;
   /** CSRFトークン */

@@ -203,7 +203,9 @@ async function handleProductRegistration(
   state: StatePayload,
 ) {
   const admin = createAdminClient();
-  const email = lineUser.email;
+  // プロダクトから HMAC 署名付きで受け取った email を優先。LINE の email scope が
+  // 付与されていないケース（LINE ビジネスアカウント等）でも突合キーが確保できる。
+  const email = state.email ?? lineUser.email;
 
   // 既存アカウントチェック
   const existing = await findExistingStudent(admin, lineUser.sub, email);

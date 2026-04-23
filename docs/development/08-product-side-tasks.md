@@ -30,12 +30,14 @@ https://{スカウトのドメイン}/api/student/auth/line
 |---|---|
 | `source` | プロダクト識別子（下記参照） |
 | `source_user_id` | プロダクト側のユーザーID |
-| `email` | ログイン中ユーザーのメールアドレス（URL エンコード必須） |
+| `email` | ログイン中ユーザーのメールアドレス（URL エンコード必須）。**optional** — プロダクト側で保持していない場合は省略可、または空文字 `email=` を送信してください |
 | `callback_url` | 連携完了後にリダイレクトバックされるURL |
 | `signature` | HMAC-SHA256署名（後述） |
 
 **`email` を渡す理由**:
 スカウト側では既存学生との突合にメールアドレスを使用します。Supabase プロダクト（面接練習AI・企業分析AI）の場合、メールアドレスは `auth.users.email` に保持されていますが、Supabase の仕様上 `auth` スキーマへの外部ロール GRANT が不可能なため、DB 直読みではなくリダイレクトパラメータ経由でお渡しいただく方式にしています。プロダクト側サーバーではログイン中ユーザーのメールアドレスを既に保持しているため、URL に付与するだけでお渡しいただけます。改ざん防止は `signature` で担保します。
+
+`email` が存在しない／取得できないユーザーの場合は省略または空文字で送信してください（スカウト側では LINE プロフィールの email へフォールバックします）。
 
 プロダクト識別子:
 
@@ -57,13 +59,16 @@ https://{スカウトのドメイン}/api/student/auth/line
 ```javascript
 // Node.js の例
 const crypto = require('crypto');
-const message = source + source_user_id + email + callback_url;
+// email が無い場合は空文字 '' を連結してください
+const message = source + source_user_id + (email ?? '') + callback_url;
 const signature = crypto.createHmac('sha256', secret)
   .update(message)
   .digest('hex');
 ```
 
 ※ `email` は URL に付与する前の生の文字列（URL エンコードする前の値）を署名対象にしてください。スカウト側でも同じ生の値で署名検証を行います。
+
+※ `email` が未取得・未保持のユーザーで `email` を省略 or 空文字で送信する場合、**署名対象の `email` 部分も空文字 `''`** として連結してください（上記コード例参照）。
 
 秘密鍵はスカウトチームよりプロダクトごとに個別に共有させていただきます。
 
