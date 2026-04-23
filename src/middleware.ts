@@ -11,6 +11,7 @@ const PUBLIC_PREFIXES = [
   AUTH_ROUTES.STUDENT_LOGIN,
   AUTH_ROUTES.COMPANY_LOGIN,
   "/api/student/auth/",
+  "/api/sync/",                 // CRON_SECRET で独自認証。Vercel Cron は Supabase session を持たないため public 扱いで通す必要がある
   "/company/forgot-password",   // ← 追加
   "/company/reset-password",    // ← 追加
   "/company/confirm",           // ← 追加

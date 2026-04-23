@@ -1439,9 +1439,11 @@ email による自動突合は行わない（面接AI・企業分析AI の `auth
               synced_* テーブルの当該ユーザー分を UPSERT
 ```
 
-#### Phase B': データ連携同意（企業への公開）
+#### Phase B': データ連携同意の扱い
 
-連携（`student_product_links` の作成）と、企業への公開を許すデータ連携同意（`students.data_consent_granted_at`）は別ステップ。**連携があっても、同意が無ければ企業からは見えない**（RLS で `data_consent_granted_at IS NOT NULL` を条件にしている）。
+**`student_product_links` に行が存在する = 同意済み** とみなす運用。明示的な同意 UI は設けず、同時登録フローで link が作成された時点で `students.data_consent_granted_at` にも `now()` を入れる（未設定の場合のみ。既設定なら初回同意時刻を保持）。
+
+`data_consent_granted_at` カラム自体は、既存の view（`public_students` / `verified_companies_view` 等）や RLS が `IS NOT NULL` で参照している互換のために残す。意味論は「link があるか」と等価。将来的に view/RLS を link ベースに書き換えた上で、この列を廃止する余地あり。
 
 #### Phase C: AI プロフィール生成
 

@@ -278,6 +278,15 @@ async function handleProductRegistration(
       { onConflict: "student_id,product" },
     );
 
+    // student_product_links に行があること = データ連携同意とみなす運用のため、
+    // data_consent_granted_at が未設定なら link 作成と同時に now() を入れる。
+    // 既に設定済みなら上書きしない（初回同意の時刻を保持）。
+    await admin
+      .from("students")
+      .update({ data_consent_granted_at: new Date().toISOString() })
+      .eq("id", student.id)
+      .is("data_consent_granted_at", null);
+
     // line_friendships にレコード作成
     await admin.from("line_friendships").upsert(
       {
