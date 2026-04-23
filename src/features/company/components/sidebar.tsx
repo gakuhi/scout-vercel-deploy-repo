@@ -19,7 +19,7 @@ const navItems: NavItem[] = [
   { href: "/company/messages", label: "メッセージ", icon: "mail" },
   { href: "/company/events", label: "イベント管理", icon: "event" },
   { href: "/company/members", label: "メンバー管理", icon: "group" },
-  { href: "/company/settings", label: "企業設定", icon: "settings" },
+  { href: "/company/settings", label: "企業プロフィール", icon: "corporate_fare" },
 ];
 
 export function Sidebar() {

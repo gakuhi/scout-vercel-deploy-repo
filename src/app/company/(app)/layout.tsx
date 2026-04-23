@@ -10,7 +10,7 @@ export default function CompanyAppLayout({
     <div className="min-h-screen bg-surface">
       <Sidebar />
       <Topbar />
-      <main className="ml-64 pt-16 p-10 min-h-screen">{children}</main>
+      <main className="ml-64 pt-24 px-10 pb-10 min-h-screen">{children}</main>
     </div>
   );
 }

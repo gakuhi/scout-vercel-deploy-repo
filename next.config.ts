@@ -1,7 +1,14 @@
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      // ロゴアップロード（最大5MB）用。全 Server Action に適用される（per-route 設定は未サポート）
+      bodySizeLimit: "6mb",
+    },
+  },
+};
 
 export default withSentryConfig(nextConfig, {
   // For all available options, see:

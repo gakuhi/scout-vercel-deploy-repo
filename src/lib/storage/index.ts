@@ -6,3 +6,4 @@ export type { UploadOptions } from "./upload";
 export { getSignedUrl, getSignedUrls } from "./signed-url";
 export type { SignedUrlResult } from "./signed-url";
 export { deleteFile } from "./delete";
+export { getPublicUrl } from "./public-url";
