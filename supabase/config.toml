@@ -399,3 +399,12 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # declarative_schema_path = "./declarative"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Remote project IDs for each protected branch.
+# Required so Supabase Branching applies config and migrations to protected branches
+# (otherwise silently skipped with "Skipping configuration for protected branch...").
+[remotes.main]
+project_id = "gxbptqauyqlyuppfolca"
+
+[remotes.scout-staging]
+project_id = "smkbhxzlkowwzaycnyjj"
