@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** 卒業予定年のレンジ。現在年 -1 から +8 年まで（profile-edit-form と同範囲）。 */
+/** 卒業予定年のレンジ。現在年 -1 から +8 年まで。 */
 function graduationYearRange(): { min: number; max: number } {
   const now = new Date().getFullYear();
   return { min: now - 1, max: now + 8 };
@@ -25,16 +25,18 @@ export const profileSchema = z.object({
   faculty: z.string().min(1, "学部を入力してください"),
   department: z.string().min(1, "学科を入力してください"),
   academic_type: z.enum(["liberal_arts", "science", "other"]),
-  graduation_year: z.coerce
-    .number()
-    .int()
-    .refine(
-      (y) => {
+  // 空文字を z.coerce.number() に渡すと 0 に変換され range エラーと見分けが付かないため、
+  // preprocess で空値だけ undefined に落として「選択してください」を先に出す。
+  graduation_year: z.preprocess(
+    (v) => (v === "" || v == null ? undefined : v),
+    z.coerce
+      .number({ error: "卒業予定年を選択してください" })
+      .int()
+      .refine((y) => {
         const { min, max } = graduationYearRange();
         return y >= min && y <= max;
-      },
-      "卒業予定年が範囲外です",
-    ),
+      }, "卒業予定年が範囲外です"),
+  ),
   postal_code: z
     .string()
     .regex(postalCodeRegex, "郵便番号はハイフンなしの 7 桁で入力してください"),

@@ -267,10 +267,16 @@ async function uploadAvatarFromFormData(
   return { path };
 }
 
-export async function updateProfile(
-  _prev: ProfileActionState,
+/**
+ * create / update のサーバアクションが共通でやる処理を吸収するヘルパ。
+ * - 認証チェック → FormData パース → schema 検証 → 画像アップロード → MBTI 解決 → students UPDATE
+ * 失敗時は ProfileActionState を返す。成功時は null を返し、呼び出し側が
+ * revalidate / redirect を行う（redirect は throw する仕様なので helper 内では行わない）。
+ */
+async function persistStudentProfile(
   formData: FormData,
-): Promise<ProfileActionState> {
+  logContext: string,
+): Promise<ProfileActionState | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -300,7 +306,9 @@ export async function updateProfile(
     street: formData.get("street"),
     building: formData.get("building") || undefined,
     mbti_type_code: formData.get("mbti") || undefined,
-    bio: formData.get("bio"),
+    // formData.get は未設定キーで null を返すが schema は z.string().optional()
+    // (null 不可) なので、空値は undefined に倒して任意項目として通す。
+    bio: formData.get("bio") || undefined,
     is_profile_public: checkboxToBool(formData.get("is_profile_public")),
   };
 
@@ -360,14 +368,17 @@ export async function updateProfile(
     updatePayload.profile_image_url = uploaded.path;
   }
 
-  const { error } = await supabase
+  // .select() を付けないと「RLS で 0 件更新だがエラーは返らない」状態を検知できない。
+  // 0 件は明示的なエラーとして扱う。
+  const { data, error } = await supabase
     .from("students")
     .update(updatePayload)
-    .eq("id", user.id);
+    .eq("id", user.id)
+    .select("id");
 
   if (error) {
     // eslint-disable-next-line no-console
-    console.error("[updateProfile] supabase error:", error);
+    console.error(`[${logContext}] supabase error:`, error);
     // Postgres の UNIQUE 制約違反（メールアドレス重複）
     if (error.code === "23505") {
       return { error: "このメールアドレスは既に使用されています" };
@@ -375,9 +386,48 @@ export async function updateProfile(
     return { error: "保存に失敗しました。もう一度お試しください。" };
   }
 
+  if (!data || data.length === 0) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[${logContext}] update affected 0 rows (auth.uid=${user.id}). RLS or session mismatch.`,
+    );
+    return {
+      error:
+        "保存に失敗しました。再度ログインし直してからもう一度お試しください。",
+    };
+  }
+
+  return null;
+}
+
+export async function updateProfile(
+  _prev: ProfileActionState,
+  formData: FormData,
+): Promise<ProfileActionState> {
+  const failure = await persistStudentProfile(formData, "updateProfile");
+  if (failure) return failure;
+
   // 保存直後にキャッシュを明示的に無効化しておく（force-dynamic の保険）。
   revalidatePath("/student/profile");
   revalidatePath("/student/profile/edit");
 
   redirect("/student/profile?saved=1");
+}
+
+/**
+ * 初回ログイン直後に呼ばれるプロフィール作成アクション。
+ * 学生レコードはサインアップ時に作成済みのため、内容は updateProfile と同じく UPDATE で
+ * 埋める。完了後はオンボーディングを抜けて学生トップへ遷移する。
+ */
+export async function createProfile(
+  _prev: ProfileActionState,
+  formData: FormData,
+): Promise<ProfileActionState> {
+  const failure = await persistStudentProfile(formData, "createProfile");
+  if (failure) return failure;
+
+  revalidatePath("/student/profile");
+  revalidatePath("/student/dashboard");
+
+  redirect("/student/dashboard");
 }

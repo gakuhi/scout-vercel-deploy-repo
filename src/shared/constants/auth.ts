@@ -15,4 +15,5 @@ export const AUTH_ROUTES = {
 
 export const STUDENT_ROUTES = {
   DASHBOARD: "/student/dashboard",
+  PROFILE_CREATE: "/student/profile/create",
 } as const;

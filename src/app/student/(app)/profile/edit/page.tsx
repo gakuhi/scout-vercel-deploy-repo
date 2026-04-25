@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { ProfileEditForm } from "@/features/student/profile/components/profile-edit-form";
+import { ProfileForm } from "@/features/student/profile/components/profile-form";
 import {
   getProfile,
   getMbtiTypes,
@@ -17,5 +17,5 @@ export default async function StudentProfileEditPage() {
     redirect("/student/auth/login");
   }
 
-  return <ProfileEditForm profile={profile} mbtiTypes={mbtiTypes} />;
+  return <ProfileForm mode="edit" profile={profile} mbtiTypes={mbtiTypes} />;
 }

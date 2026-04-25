@@ -6,6 +6,7 @@ import { decryptState, type StatePayload } from "@/lib/line/state";
 import { AUTH_ROUTES, STUDENT_ROUTES } from "@/shared/constants/auth";
 import { runSyncUser } from "@/lib/sync/shared";
 import { productSourceSchema } from "@/features/auth/schemas";
+import { isProfileComplete } from "@/features/student/profile/utils";
 import type { Database } from "@/shared/types/database";
 
 /**
@@ -153,8 +154,13 @@ async function handleDirectLogin(
     );
   }
 
+  // プロフィール完成度に応じて遷移先を分岐。判定ロジックは utils 側に集約。
+  const redirectPath = isProfileComplete(existing)
+    ? STUDENT_ROUTES.DASHBOARD
+    : STUDENT_ROUTES.PROFILE_CREATE;
+
   // verifyOtp で Cookie ベースのセッション確立
-  const redirectUrl = new URL(STUDENT_ROUTES.DASHBOARD, request.url);
+  const redirectUrl = new URL(redirectPath, request.url);
   const response = NextResponse.redirect(redirectUrl);
 
   // CSRF cookie を削除
@@ -352,6 +358,12 @@ type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 /**
  * LINE UID or メアドで既存の学生を検索
  */
+// isProfileComplete が必要とする全必須カラムを含めて取得する。
+// （university 単独判定の頃の名残で line_uid と university のみ select していたが、
+//  必須項目すべて揃っているかを判定するため拡張）
+const STUDENT_COMPLETION_COLUMNS =
+  "id, line_uid, last_name, first_name, last_name_kana, first_name_kana, email, phone, birthdate, gender, university, faculty, department, academic_type, graduation_year, postal_code, prefecture, city, street";
+
 async function findExistingStudent(
   supabase: SupabaseAdmin,
   lineUid: string,
@@ -359,7 +371,7 @@ async function findExistingStudent(
 ) {
   const { data: byLineUid } = await supabase
     .from("students")
-    .select("id, line_uid")
+    .select(STUDENT_COMPLETION_COLUMNS)
     .eq("line_uid", lineUid)
     .maybeSingle();
 
@@ -368,7 +380,7 @@ async function findExistingStudent(
   if (email) {
     const { data: byEmail } = await supabase
       .from("students")
-      .select("id, line_uid")
+      .select(STUDENT_COMPLETION_COLUMNS)
       .eq("email", email)
       .maybeSingle();
 
