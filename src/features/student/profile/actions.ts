@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type {
+  SyncedEsItem,
+  SyncedInterviewItem,
+  SyncedItems,
+  SyncedResearchItem,
+  SyncedSugoshuItem,
   ActivityLevel,
   IndustryCategory,
   JobCategory,
@@ -11,6 +16,8 @@ import type {
 } from "@/features/student/profile/mock";
 import { profileSchema } from "@/features/student/profile/schema";
 import { buildFullName, buildInitials, checkboxToBool } from "@/features/student/profile/utils";
+
+const SYNCED_LIMIT = 5;
 
 export type ProfileActionState = {
   error?: string;
@@ -85,30 +92,180 @@ async function getProductCounts(
   const [esRes, researchRes, interviewRes] = await Promise.all([
     smartesId
       ? supabase
-          .from("synced_smartes_generated_es")
-          .select("*", { count: "exact", head: true })
-          .eq("external_user_id", smartesId)
+        .from("synced_smartes_generated_es")
+        .select("*", { count: "exact", head: true })
+        .eq("external_user_id", smartesId)
       : Promise.resolve({ count: 0 }),
     compaiId
       ? supabase
-          .from("synced_compai_researches")
-          .select("*", { count: "exact", head: true })
-          .eq("external_user_id", compaiId)
+        .from("synced_compai_researches")
+        .select("*", { count: "exact", head: true })
+        .eq("external_user_id", compaiId)
       : Promise.resolve({ count: 0 }),
     interviewaiId
       ? supabase
-          .from("synced_interviewai_sessions")
-          .select("*", { count: "exact", head: true })
-          .eq("external_user_id", interviewaiId)
+        .from("synced_interviewai_sessions")
+        .select("*", { count: "exact", head: true })
+        .eq("external_user_id", interviewaiId)
       : Promise.resolve({ count: 0 }),
   ]);
+
+  const sugoshuId = extId("sugoshu");
+  const [resumeCountRes, diagnosisCountRes] = await Promise.all([
+    sugoshuId
+      ? supabase
+        .from("synced_sugoshu_resumes")
+        .select("*", { count: "exact", head: true })
+        .eq("external_user_id", sugoshuId)
+      : Promise.resolve({ count: 0 }),
+    sugoshuId
+      ? supabase
+        .from("synced_sugoshu_diagnoses")
+        .select("*", { count: "exact", head: true })
+        .eq("external_user_id", sugoshuId)
+      : Promise.resolve({ count: 0 }),
+  ]);
+
+  const sugoshuCount = (resumeCountRes.count ?? 0) + (diagnosisCountRes.count ?? 0);
 
   return [
     { label: "ESデータ", icon: "description", value: esRes.count ?? 0 },
     { label: "企業分析", icon: "analytics", value: researchRes.count ?? 0 },
     { label: "面接練習", icon: "record_voice_over", value: interviewRes.count ?? 0 },
-    { label: "活動一覧", icon: "format_list_bulleted", value: links.length },
+    { label: "すごい就活", icon: "description", value: sugoshuCount },
   ];
+}
+
+type EsRow = { id: string; generated_text: string | null; generated_at: string | null };
+type ResearchRow = {
+  id: string;
+  title: string | null;
+  url: string | null;
+  original_created_at: string | null;
+};
+type InterviewRow = {
+  id: string;
+  company_name: string | null;
+  session_type: string | null;
+  overall_score: number | null;
+  started_at: string | null;
+};
+type SugoshuResumeRow = {
+  id: string;
+  content: string | null;
+  original_created_at: string | null;
+};
+type SugoshuDiagnosisRow = {
+  id: string;
+  diagnosis_data: unknown;
+  original_created_at: string | null;
+};
+
+async function getSyncedItems(
+  supabase: SupabaseClient,
+  links: ProductLink[],
+): Promise<SyncedItems> {
+  const extId = (product: string) =>
+    links.find((l) => l.product === product)?.external_user_id;
+
+  const smartesId = extId("smartes");
+  const compaiId = extId("compai");
+  const interviewaiId = extId("interviewai");
+  const sugoshuId = extId("sugoshu");
+
+  const [esRes, researchRes, interviewRes, resumeRes, diagnosisRes] = await Promise.all([
+    smartesId
+      ? supabase
+        .from("synced_smartes_generated_es")
+        .select("id, generated_text, generated_at")
+        .eq("external_user_id", smartesId)
+        .order("generated_at", { ascending: false })
+        .limit(SYNCED_LIMIT)
+      : Promise.resolve({ data: [] as EsRow[] }),
+    compaiId
+      ? supabase
+        .from("synced_compai_researches")
+        .select("id, title, url, original_created_at")
+        .eq("external_user_id", compaiId)
+        .order("original_created_at", { ascending: false })
+        .limit(SYNCED_LIMIT)
+      : Promise.resolve({ data: [] as ResearchRow[] }),
+    interviewaiId
+      ? supabase
+        .from("synced_interviewai_sessions")
+        .select("id, company_name, session_type, overall_score, started_at")
+        .eq("external_user_id", interviewaiId)
+        .order("started_at", { ascending: false })
+        .limit(SYNCED_LIMIT)
+      : Promise.resolve({ data: [] as InterviewRow[] }),
+    sugoshuId
+      ? supabase
+        .from("synced_sugoshu_resumes")
+        .select("id, content, original_created_at")
+        .eq("external_user_id", sugoshuId)
+        .order("original_created_at", { ascending: false })
+        .limit(SYNCED_LIMIT)
+      : Promise.resolve({ data: [] as SugoshuResumeRow[] }),
+    sugoshuId
+      ? supabase
+        .from("synced_sugoshu_diagnoses")
+        .select("id, diagnosis_data, original_created_at")
+        .eq("external_user_id", sugoshuId)
+        .order("original_created_at", { ascending: false })
+        .limit(SYNCED_LIMIT)
+      : Promise.resolve({ data: [] as SugoshuDiagnosisRow[] }),
+  ]);
+
+  const es: SyncedEsItem[] = ((esRes.data ?? []) as EsRow[]).map((r) => ({
+    id: r.id,
+    generatedText: r.generated_text,
+    generatedAt: r.generated_at,
+  }));
+
+  const researches: SyncedResearchItem[] = ((researchRes.data ?? []) as ResearchRow[]).map(
+    (r) => ({
+      id: r.id,
+      title: r.title,
+      url: r.url,
+      originalCreatedAt: r.original_created_at,
+    }),
+  );
+
+  const interviewSessions: SyncedInterviewItem[] = (
+    (interviewRes.data ?? []) as InterviewRow[]
+  ).map((r) => ({
+    id: r.id,
+    companyName: r.company_name,
+    sessionType: r.session_type,
+    overallScore: r.overall_score,
+    startedAt: r.started_at,
+  }));
+
+  const resumes: SyncedSugoshuItem[] = ((resumeRes.data ?? []) as SugoshuResumeRow[]).map(
+    (r) => ({
+      id: r.id,
+      kind: "resume" as const,
+      contentPreview: r.content ? r.content.slice(0, 120) : null,
+      originalCreatedAt: r.original_created_at,
+    }),
+  );
+
+  const diagnoses: SyncedSugoshuItem[] = (
+    (diagnosisRes.data ?? []) as SugoshuDiagnosisRow[]
+  ).map((r) => ({
+    id: r.id,
+    kind: "diagnosis" as const,
+    contentPreview: r.diagnosis_data
+      ? JSON.stringify(r.diagnosis_data).slice(0, 120)
+      : null,
+    originalCreatedAt: r.original_created_at,
+  }));
+
+  const sugoshu = [...resumes, ...diagnoses]
+    .sort((a, b) => (b.originalCreatedAt ?? "").localeCompare(a.originalCreatedAt ?? ""))
+    .slice(0, SYNCED_LIMIT);
+
+  return { es, researches, interviewSessions, sugoshu };
 }
 
 export async function getProfileViewData(): Promise<ProfileMock | null> {
@@ -159,13 +316,13 @@ export async function getProfileViewData(): Promise<ProfileMock | null> {
     | undefined;
   const interestedIndustries = Array.isArray(rawInterests?.industries)
     ? (rawInterests.industries.filter(
-        (v): v is string => typeof v === "string",
-      ) as IndustryCategory[])
+      (v): v is string => typeof v === "string",
+    ) as IndustryCategory[])
     : [];
   const interestedJobTypes = Array.isArray(rawInterests?.jobTypes)
     ? (rawInterests.jobTypes.filter(
-        (v): v is string => typeof v === "string",
-      ) as JobCategory[])
+      (v): v is string => typeof v === "string",
+    ) as JobCategory[])
     : [];
 
   // activity_level は TEXT カラム。想定値以外が入っていた場合は null 扱い
@@ -223,6 +380,7 @@ export async function getProfileViewData(): Promise<ProfileMock | null> {
       scoreConfidence: 0,
     },
     productCounts: await getProductCounts(supabase, linksRes.data ?? []),
+    syncedItems: await getSyncedItems(supabase, linksRes.data ?? []),
     scoutSettings: [],
     verifiedAt: "",
   };

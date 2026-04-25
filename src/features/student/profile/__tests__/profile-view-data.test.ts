@@ -206,6 +206,23 @@ describe("getProfileViewData", () => {
     expect(result!.bio).toBe("");
   });
 
+  it("プロダクト連携なしの場合は syncedItems が全て空配列になる", async () => {
+    setupMockSupabase({ links: [] });
+
+    const result = await getProfileViewData();
+    expect(result!.syncedItems.es).toEqual([]);
+    expect(result!.syncedItems.researches).toEqual([]);
+    expect(result!.syncedItems.interviewSessions).toEqual([]);
+    expect(result!.syncedItems.sugoshu).toEqual([]);
+  });
+
+  it("productCounts の最後のラベルが「すごい就活」になっている", async () => {
+    setupMockSupabase({ links: [] });
+
+    const result = await getProfileViewData();
+    expect(result!.productCounts[3].label).toBe("すごい就活");
+  });
+
   // ─── プレビュー用に追加されたフィールド ───
 
   it("department / prefecture を返す", async () => {

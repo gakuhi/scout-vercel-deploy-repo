@@ -94,6 +94,42 @@ export type IntegratedProfile = {
   scoreConfidence: number;
 };
 
+/** 各プロダクトの同期済みデータアイテム（最新 N 件） */
+export type SyncedEsItem = {
+  id: string;
+  generatedText: string | null;
+  generatedAt: string | null;
+};
+
+export type SyncedResearchItem = {
+  id: string;
+  title: string | null;
+  url: string | null;
+  originalCreatedAt: string | null;
+};
+
+export type SyncedInterviewItem = {
+  id: string;
+  companyName: string | null;
+  sessionType: string | null;
+  overallScore: number | null;
+  startedAt: string | null;
+};
+
+export type SyncedSugoshuItem = {
+  id: string;
+  kind: "resume" | "diagnosis";
+  contentPreview: string | null;
+  originalCreatedAt: string | null;
+};
+
+export type SyncedItems = {
+  es: SyncedEsItem[];
+  researches: SyncedResearchItem[];
+  interviewSessions: SyncedInterviewItem[];
+  sugoshu: SyncedSugoshuItem[];
+};
+
 export type ProfileMock = {
   name: string;
   university: string;
@@ -120,6 +156,7 @@ export type ProfileMock = {
     icon: string;
     value: number;
   }[];
+  syncedItems: SyncedItems;
   scoutSettings: {
     label: string;
     value: string;
@@ -171,8 +208,67 @@ export const profileMock: ProfileMock = {
     { label: "ESデータ", icon: "description", value: 12 },
     { label: "企業分析", icon: "analytics", value: 45 },
     { label: "面接練習", icon: "record_voice_over", value: 8 },
-    { label: "活動一覧", icon: "format_list_bulleted", value: 24 },
+    { label: "すごい就活", icon: "description", value: 6 },
   ],
+  syncedItems: {
+    es: [
+      {
+        id: "es-1",
+        generatedText:
+          "私の強みは、データに基づいて仮説を立て検証するプロセスを粘り強く継続できる点です。学生団体のイベント運営で前年比150%の参加者増を達成しました。",
+        generatedAt: "2026-03-12T10:00:00Z",
+      },
+      {
+        id: "es-2",
+        generatedText: "学生時代に最も力を入れたのはデータ分析サークルの運営です。30人のメンバーをまとめ、月1回の勉強会を企画運営しました。",
+        generatedAt: "2026-03-05T10:00:00Z",
+      },
+    ],
+    researches: [
+      {
+        id: "res-1",
+        title: "トヨタ自動車の海外戦略と新興国市場での動向",
+        url: "https://example.com/toyota-research",
+        originalCreatedAt: "2026-03-15T09:00:00Z",
+      },
+      {
+        id: "res-2",
+        title: "ソニーグループの事業ポートフォリオ分析",
+        url: "https://example.com/sony-research",
+        originalCreatedAt: "2026-03-10T09:00:00Z",
+      },
+    ],
+    interviewSessions: [
+      {
+        id: "int-1",
+        companyName: "株式会社サンプル",
+        sessionType: "technical",
+        overallScore: 82,
+        startedAt: "2026-03-18T14:00:00Z",
+      },
+      {
+        id: "int-2",
+        companyName: "サンプル商事",
+        sessionType: "behavioral",
+        overallScore: 75,
+        startedAt: "2026-03-08T14:00:00Z",
+      },
+    ],
+    sugoshu: [
+      {
+        id: "sug-1",
+        kind: "resume",
+        contentPreview: "東京未来大学 経済学部 経済学科 在学中。データ分析サークル所属、TOEIC 850点。",
+        originalCreatedAt: "2026-03-20T11:00:00Z",
+      },
+      {
+        id: "sug-2",
+        kind: "diagnosis",
+        contentPreview: "志向性: 成長重視 / スキル傾向: 論理的思考",
+        originalCreatedAt: "2026-02-28T11:00:00Z",
+      },
+    ],
+  },
   scoutSettings: [
     { label: "スカウト受取", value: "ON", highlight: true },
     { label: "希望年収（初年度）", value: "450万円〜" },

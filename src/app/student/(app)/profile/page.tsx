@@ -16,7 +16,7 @@ export default async function StudentProfilePage({
   ]);
 
   if (!data) {
-    redirect("/student/auth/login");
+    redirect("/student/login");
   }
 
   return (

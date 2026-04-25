@@ -40,6 +40,12 @@ function baseProfile(overrides: Partial<ProfileMock> = {}): ProfileMock {
       scoreConfidence: 0,
     },
     productCounts: [],
+    syncedItems: {
+      es: [],
+      researches: [],
+      interviewSessions: [],
+      sugoshu: [],
+    },
     scoutSettings: [],
     verifiedAt: "",
     ...overrides,

@@ -14,7 +14,7 @@ export default async function StudentProfileEditPage() {
   ]);
 
   if (!profile) {
-    redirect("/student/auth/login");
+    redirect("/student/login");
   }
 
   return <ProfileForm mode="edit" profile={profile} mbtiTypes={mbtiTypes} />;

@@ -2,12 +2,27 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Eyebrow } from "@/components/ui/tag";
-import type { IntegratedProfile, ProfileMock } from "@/features/student/profile/mock";
+import type {
+  IntegratedProfile,
+  ProfileMock,
+  SyncedEsItem,
+  SyncedInterviewItem,
+  SyncedResearchItem,
+  SyncedSugoshuItem,
+} from "@/features/student/profile/mock";
 import { industryLabels, jobCategoryLabels } from "@/features/student/profile/mock";
 
 type ProfileViewProps = {
   data: ProfileMock;
 };
+
+function formatDate(value: string | null): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime())
+    ? "—"
+    : d.toLocaleDateString("ja-JP", { year: "numeric", month: "short", day: "numeric" });
+}
 
 export function ProfileView({ data }: ProfileViewProps) {
   const profile = data.integratedProfile;
@@ -23,7 +38,10 @@ export function ProfileView({ data }: ProfileViewProps) {
         <InterestTagsCard profile={profile} />
         <ActivityCard profile={profile} />
         <BioCard bio={data.bio} />
-        <ProductSyncSection counts={data.productCounts} />
+        <ProductSyncSection
+          counts={data.productCounts}
+          syncedItems={data.syncedItems}
+        />
       </div>
     </div>
   );
@@ -334,10 +352,18 @@ function BioCard({ bio }: { bio: string }) {
 
 /* ─── プロダクト同期 ─── */
 
-function ProductSyncSection({ counts }: { counts: ProfileMock["productCounts"] }) {
+function ProductSyncSection({
+  counts,
+  syncedItems,
+}: {
+  counts: ProfileMock["productCounts"];
+  syncedItems: ProfileMock["syncedItems"];
+}) {
   return (
-    <section>
-      <h2 className="text-xl md:text-2xl font-bold text-primary mb-6">各プロダクト同期データ</h2>
+    <section className="space-y-6">
+      <h2 className="text-xl md:text-2xl font-bold text-primary">
+        各プロダクト同期データ
+      </h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {counts.map((item) => (
           <Card key={item.label} className="transition-transform hover:-translate-y-1">
@@ -349,7 +375,164 @@ function ProductSyncSection({ counts }: { counts: ProfileMock["productCounts"] }
           </Card>
         ))}
       </div>
+      <div className="space-y-3">
+        <EsAccordion items={syncedItems.es} />
+        <ResearchAccordion items={syncedItems.researches} />
+        <InterviewAccordion items={syncedItems.interviewSessions} />
+        <SugoshuAccordion items={syncedItems.sugoshu} />
+      </div>
     </section>
+  );
+}
+
+function AccordionShell({
+  icon,
+  title,
+  count,
+  children,
+}: {
+  icon: string;
+  title: string;
+  count: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group bg-surface-container-lowest rounded-xl soft-border overflow-hidden">
+      <summary className="cursor-pointer p-5 flex items-center justify-between hover:bg-surface-container-low/40 transition-colors list-none">
+        <div className="flex items-center gap-3">
+          <Icon name={icon} filled className="text-primary-container text-xl" />
+          <span className="font-bold text-on-surface">{title}</span>
+          <span className="text-xs font-medium text-outline">
+            {count === 0 ? "データなし" : `最新 ${count} 件`}
+          </span>
+        </div>
+        <Icon
+          name="expand_more"
+          className="text-outline transition-transform group-open:rotate-180"
+        />
+      </summary>
+      <div className="border-t border-outline-variant/20 divide-y divide-outline-variant/20">
+        {children}
+      </div>
+    </details>
+  );
+}
+
+function EmptyRow() {
+  return (
+    <p className="px-5 py-6 text-sm text-on-surface-variant text-center">
+      同期されたデータはまだありません
+    </p>
+  );
+}
+
+function EsAccordion({ items }: { items: SyncedEsItem[] }) {
+  return (
+    <AccordionShell icon="description" title="ES データ" count={items.length}>
+      {items.length === 0 ? (
+        <EmptyRow />
+      ) : (
+        items.map((item) => (
+          <div key={item.id} className="px-5 py-4">
+            <Eyebrow className="mb-1.5">{formatDate(item.generatedAt)}</Eyebrow>
+            <p className="text-sm text-on-surface-variant line-clamp-2">
+              {item.generatedText ?? "（本文なし）"}
+            </p>
+          </div>
+        ))
+      )}
+    </AccordionShell>
+  );
+}
+
+function ResearchAccordion({ items }: { items: SyncedResearchItem[] }) {
+  return (
+    <AccordionShell icon="analytics" title="企業分析" count={items.length}>
+      {items.length === 0 ? (
+        <EmptyRow />
+      ) : (
+        items.map((item) => (
+          <div key={item.id} className="px-5 py-4">
+            <Eyebrow className="mb-1.5">
+              {formatDate(item.originalCreatedAt)}
+            </Eyebrow>
+            <p className="text-sm font-bold text-on-surface mb-1">
+              {item.title ?? "（タイトルなし）"}
+            </p>
+            {item.url ? (
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-primary-container underline break-all"
+              >
+                {item.url}
+              </a>
+            ) : null}
+          </div>
+        ))
+      )}
+    </AccordionShell>
+  );
+}
+
+function InterviewAccordion({ items }: { items: SyncedInterviewItem[] }) {
+  return (
+    <AccordionShell
+      icon="record_voice_over"
+      title="面接練習"
+      count={items.length}
+    >
+      {items.length === 0 ? (
+        <EmptyRow />
+      ) : (
+        items.map((item) => (
+          <div key={item.id} className="px-5 py-4 flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <Eyebrow className="mb-1.5">{formatDate(item.startedAt)}</Eyebrow>
+              <p className="text-sm font-bold text-on-surface truncate">
+                {item.companyName ?? "（企業名なし）"}
+              </p>
+              {item.sessionType ? (
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  {item.sessionType}
+                </p>
+              ) : null}
+            </div>
+            <div className="shrink-0 text-right">
+              <Eyebrow>総合スコア</Eyebrow>
+              <p className="text-lg font-extrabold text-primary">
+                {item.overallScore != null ? item.overallScore : "—"}
+              </p>
+            </div>
+          </div>
+        ))
+      )}
+    </AccordionShell>
+  );
+}
+
+function SugoshuAccordion({ items }: { items: SyncedSugoshuItem[] }) {
+  return (
+    <AccordionShell icon="description" title="すごい就活" count={items.length}>
+      {items.length === 0 ? (
+        <EmptyRow />
+      ) : (
+        items.map((item) => (
+          <div key={item.id} className="px-5 py-4">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Eyebrow>{formatDate(item.originalCreatedAt)}</Eyebrow>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-surface-container text-primary-container">
+                {item.kind === "resume" ? "履歴書" : "診断"}
+              </span>
+            </div>
+            <p className="text-sm text-on-surface-variant line-clamp-2">
+              {item.contentPreview ?? "（内容なし）"}
+            </p>
+          </div>
+        ))
+      )}
+    </AccordionShell>
   );
 }
 
