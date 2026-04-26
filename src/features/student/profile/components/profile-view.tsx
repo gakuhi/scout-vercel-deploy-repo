@@ -82,8 +82,13 @@ function HeroSection({ data }: { data: ProfileMock }) {
                 {data.name}
               </h1>
               <p className="mt-1 text-xs md:text-sm font-medium text-secondary">
-                {data.university} / {data.faculty} / {data.graduationYear}
-                年卒業予定
+                {[
+                  data.university,
+                  data.faculty,
+                  `${data.graduationYear}年卒業予定`,
+                ]
+                  .filter(Boolean)
+                  .join(" / ")}
               </p>
             </div>
             <div className="flex gap-2 md:gap-3 w-full md:w-auto">

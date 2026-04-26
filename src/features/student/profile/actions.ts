@@ -95,19 +95,19 @@ async function getProductCounts(
         .from("synced_smartes_generated_es")
         .select("*", { count: "exact", head: true })
         .eq("external_user_id", smartesId)
-      : Promise.resolve({ count: 0 }),
+      : Promise.resolve({ count: 0, error: null }),
     compaiId
       ? supabase
         .from("synced_compai_researches")
         .select("*", { count: "exact", head: true })
         .eq("external_user_id", compaiId)
-      : Promise.resolve({ count: 0 }),
+      : Promise.resolve({ count: 0, error: null }),
     interviewaiId
       ? supabase
         .from("synced_interviewai_sessions")
         .select("*", { count: "exact", head: true })
         .eq("external_user_id", interviewaiId)
-      : Promise.resolve({ count: 0 }),
+      : Promise.resolve({ count: 0, error: null }),
   ]);
 
   const sugoshuId = extId("sugoshu");
@@ -117,14 +117,28 @@ async function getProductCounts(
         .from("synced_sugoshu_resumes")
         .select("*", { count: "exact", head: true })
         .eq("external_user_id", sugoshuId)
-      : Promise.resolve({ count: 0 }),
+      : Promise.resolve({ count: 0, error: null }),
     sugoshuId
       ? supabase
         .from("synced_sugoshu_diagnoses")
         .select("*", { count: "exact", head: true })
         .eq("external_user_id", sugoshuId)
-      : Promise.resolve({ count: 0 }),
+      : Promise.resolve({ count: 0, error: null }),
   ]);
+
+  // 「同期済みだが 0 件」と「DB エラーで取得失敗」を区別できるよう error をログに残す。
+  // count は null になり得るのでフォールバックは従来通り 0。
+  for (const [label, res] of [
+    ["smartes", esRes],
+    ["compai", researchRes],
+    ["interviewai", interviewRes],
+    ["sugoshu_resumes", resumeCountRes],
+    ["sugoshu_diagnoses", diagnosisCountRes],
+  ] as const) {
+    if (res.error) {
+      console.error(`[getProductCounts] ${label} count error:`, res.error);
+    }
+  }
 
   const sugoshuCount = (resumeCountRes.count ?? 0) + (diagnosisCountRes.count ?? 0);
 
