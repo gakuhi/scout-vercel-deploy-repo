@@ -119,4 +119,28 @@ describe("eventSchema", () => {
       expect(result.success).toBe(true);
     }
   });
+
+  it("startsAt/endsAt の datetime-local 文字列を JST (+09:00) として正規化する", () => {
+    const result = eventSchema.safeParse({
+      ...validInput,
+      startsAt: "2025-06-01T10:00",
+      endsAt: "2025-06-01T12:00",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.startsAt).toBe("2025-06-01T10:00:00+09:00");
+      expect(result.data.endsAt).toBe("2025-06-01T12:00:00+09:00");
+    }
+  });
+
+  it("既に秒付きの datetime-local も JST として正規化する", () => {
+    const result = eventSchema.safeParse({
+      ...validInput,
+      startsAt: "2025-06-01T10:00:30",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.startsAt).toBe("2025-06-01T10:00:30+09:00");
+    }
+  });
 });

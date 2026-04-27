@@ -5,6 +5,20 @@ const emptyToNull = z.preprocess(
   z.string().nullable(),
 );
 
+const DATETIME_LOCAL_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
+
+// `<input type="datetime-local">` はタイムゾーン無しの "YYYY-MM-DDTHH:MM" を送るため、
+// そのまま TIMESTAMPTZ に渡すと Postgres が UTC とみなして表示時に +9 時間ずれる。
+// JST (+09:00) として解釈した ISO 文字列に変換する。
+const toJstIso = (val: unknown): unknown => {
+  if (typeof val !== "string") return val;
+  const trimmed = val.trim();
+  if (!trimmed) return val;
+  if (!DATETIME_LOCAL_REGEX.test(trimmed)) return val;
+  const withSeconds = trimmed.length === 16 ? `${trimmed}:00` : trimmed;
+  return `${withSeconds}+09:00`;
+};
+
 export const EVENT_FORMATS = ["online", "offline", "hybrid"] as const;
 export type EventFormat = (typeof EVENT_FORMATS)[number];
 
@@ -31,13 +45,19 @@ export const eventSchema = z.object({
     "有効なカテゴリを選択してください",
   ),
   format: z.enum(EVENT_FORMATS, "開催形式を選択してください"),
-  startsAt: z
-    .string()
-    .min(1, "開始日時を入力してください")
-    .refine(isValidDatetime, "有効な日時を入力してください"),
-  endsAt: emptyToNull.refine(
-    (val) => val === null || isValidDatetime(val),
-    "有効な日時を入力してください",
+  startsAt: z.preprocess(
+    toJstIso,
+    z
+      .string()
+      .min(1, "開始日時を入力してください")
+      .refine(isValidDatetime, "有効な日時を入力してください"),
+  ),
+  endsAt: z.preprocess(
+    toJstIso,
+    emptyToNull.refine(
+      (val) => val === null || isValidDatetime(val),
+      "有効な日時を入力してください",
+    ),
   ),
   location: emptyToNull,
   onlineUrl: emptyToNull.refine(
