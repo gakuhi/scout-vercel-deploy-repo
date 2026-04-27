@@ -1,11 +1,7 @@
 import { Eyebrow } from "@/components/ui/tag";
 import { GlassCard } from "@/features/company/student-profile/glass-card";
-import {
-  industryLabels,
-  jobCategoryLabels,
-  type IndustryCategory,
-  type JobCategory,
-} from "@/features/student/profile/mock";
+import { industryLabels, type IndustryCategory } from "@/shared/constants/industries";
+import { jobCategoryLabels, type JobCategory } from "@/shared/constants/job-categories";
 
 export function InterestTagsCard({
   industries,

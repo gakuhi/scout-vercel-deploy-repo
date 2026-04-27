@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Eyebrow } from "@/components/ui/tag";
+import { industryLabels } from "@/shared/constants/industries";
+import { jobCategoryLabels } from "@/shared/constants/job-categories";
 import type {
   IntegratedProfile,
   ProfileMock,
@@ -10,7 +12,6 @@ import type {
   SyncedResearchItem,
   SyncedSugoshuItem,
 } from "@/features/student/profile/mock";
-import { industryLabels, jobCategoryLabels } from "@/features/student/profile/mock";
 
 type ProfileViewProps = {
   data: ProfileMock;

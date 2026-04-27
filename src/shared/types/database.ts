@@ -742,40 +742,67 @@ export type Database = {
       }
       student_integrated_profiles: {
         Row: {
-          activity_level: Database["public"]["Enums"]["activity_level"] | null
+          activity_volume_score: number | null
+          autonomy_guidance_score: number | null
+          communication_score: number | null
           generated_at: string | null
+          growth_stability_score: number | null
           id: string
-          interests: Json | null
+          individual_team_score: number | null
+          interested_industries: string[] | null
+          interested_job_types: string[] | null
+          leadership_score: number | null
+          logical_thinking_score: number | null
           model_version: string | null
-          preferred_work_locations: Json | null
+          score_confidence: number | null
           skills: Json | null
+          specialist_generalist_score: number | null
           strengths: Json | null
           student_id: string
           summary: string | null
+          writing_skill_score: number | null
         }
         Insert: {
-          activity_level?: Database["public"]["Enums"]["activity_level"] | null
+          activity_volume_score?: number | null
+          autonomy_guidance_score?: number | null
+          communication_score?: number | null
           generated_at?: string | null
+          growth_stability_score?: number | null
           id?: string
-          interests?: Json | null
+          individual_team_score?: number | null
+          interested_industries?: string[] | null
+          interested_job_types?: string[] | null
+          leadership_score?: number | null
+          logical_thinking_score?: number | null
           model_version?: string | null
-          preferred_work_locations?: Json | null
+          score_confidence?: number | null
           skills?: Json | null
+          specialist_generalist_score?: number | null
           strengths?: Json | null
           student_id: string
           summary?: string | null
+          writing_skill_score?: number | null
         }
         Update: {
-          activity_level?: Database["public"]["Enums"]["activity_level"] | null
+          activity_volume_score?: number | null
+          autonomy_guidance_score?: number | null
+          communication_score?: number | null
           generated_at?: string | null
+          growth_stability_score?: number | null
           id?: string
-          interests?: Json | null
+          individual_team_score?: number | null
+          interested_industries?: string[] | null
+          interested_job_types?: string[] | null
+          leadership_score?: number | null
+          logical_thinking_score?: number | null
           model_version?: string | null
-          preferred_work_locations?: Json | null
+          score_confidence?: number | null
           skills?: Json | null
+          specialist_generalist_score?: number | null
           strengths?: Json | null
           student_id?: string
           summary?: string | null
+          writing_skill_score?: number | null
         }
         Relationships: [
           {
@@ -1470,19 +1497,29 @@ export type Database = {
       searchable_students: {
         Row: {
           academic_type: Database["public"]["Enums"]["academic_type"] | null
-          activity_level: Database["public"]["Enums"]["activity_level"] | null
+          activity_volume_score: number | null
+          autonomy_guidance_score: number | null
           bio: string | null
+          communication_score: number | null
+          department: string | null
           faculty: string | null
           graduation_year: number | null
+          growth_stability_score: number | null
           id: string | null
-          interests: Json | null
+          individual_team_score: number | null
+          interested_industries: string[] | null
+          interested_job_types: string[] | null
+          leadership_score: number | null
+          logical_thinking_score: number | null
           prefecture: string | null
-          preferred_work_locations: Json | null
           profile_image_url: string | null
+          score_confidence: number | null
           skills: Json | null
+          specialist_generalist_score: number | null
           strengths: Json | null
           summary: string | null
           university: string | null
+          writing_skill_score: number | null
         }
         Relationships: []
       }
@@ -1494,7 +1531,6 @@ export type Database = {
     }
     Enums: {
       academic_type: "liberal_arts" | "science" | "other"
-      activity_level: "low" | "medium" | "high" | "very_high"
       chat_sender_role: "student" | "company_member"
       company_member_role: "owner" | "admin" | "member"
       event_format: "online" | "offline" | "hybrid"
@@ -1649,7 +1685,6 @@ export const Constants = {
   public: {
     Enums: {
       academic_type: ["liberal_arts", "science", "other"],
-      activity_level: ["low", "medium", "high", "very_high"],
       chat_sender_role: ["student", "company_member"],
       company_member_role: ["owner", "admin", "member"],
       event_format: ["online", "offline", "hybrid"],

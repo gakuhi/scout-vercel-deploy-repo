@@ -422,10 +422,19 @@ erDiagram
         uuid student_id FK "UNIQUE"
         text summary "AIによる人物要約"
         jsonb strengths
-        jsonb interests
         jsonb skills
-        jsonb preferred_work_locations
-        activity_level activity_level
+        smallint growth_stability_score "0-100"
+        smallint specialist_generalist_score "0-100"
+        smallint individual_team_score "0-100"
+        smallint autonomy_guidance_score "0-100"
+        smallint logical_thinking_score "0-100"
+        smallint communication_score "0-100"
+        smallint writing_skill_score "0-100"
+        smallint leadership_score "0-100 or NULL"
+        smallint activity_volume_score "0-100"
+        text_ARRAY interested_industries "Top5"
+        text_ARRAY interested_job_types
+        smallint score_confidence "0-100"
         timestamptz generated_at
         text model_version
     }
@@ -663,7 +672,11 @@ erDiagram
 | `event_organizer_type` | `company`, `platform` | イベント主催者種別 |
 | `event_format` | `online`, `offline`, `hybrid` | イベント開催形式 |
 | `event_registration_status` | `applied`, `confirmed`, `cancelled`, `attended` | イベント参加ステータス |
-| `activity_level` | `low`, `medium`, `high`, `very_high` | 就活活動量（student_integrated_profiles.activity_level に格納） |
+
+> **業界・職種・勤務地は enum ではなく TEXT[] で保持**:
+> 03-02 マッチング設計書「カテゴリの語彙管理」を参照。許容値の単一ソースは
+> `src/features/student/profile/mock.ts`（`IndustryCategory` / `JobCategory` 型）。
+> `region`（勤務地）は #207 で `students.desired_locations TEXT[]` として導入予定。
 
 ---
 
@@ -974,18 +987,27 @@ erDiagram
 
 ### 🔵 18. student_integrated_profiles — AI統合プロフィール
 
-Claude APIで4プロダクトのデータを分析し、統合的な学生プロフィールを生成・保存する。
+Claude APIで4プロダクトのデータを分析し、統合的な学生プロフィールを生成・保存する。スキーマは [03-02-matching-design.md](03-02-matching-design.md) に準拠。
 
 | カラム | 型 | 制約 | 説明 |
 |---|---|---|---|
 | id | UUID | PK, DEFAULT gen_random_uuid() | |
 | student_id | UUID | NOT NULL, UNIQUE, FK → students(id) | |
-| summary | TEXT | | AIによる人物要約 |
-| strengths | JSONB | | 強み・特性 |
-| interests | JSONB | | 志望業界・企業群 |
-| skills | JSONB | | スキル評価 |
-| preferred_work_locations | JSONB | | 志望勤務先（例: ["東京", "大阪"]） |
-| activity_level | activity_level | | 就活活動量 |
+| summary | TEXT | | AIによる人物要約（2-3文） |
+| strengths | JSONB | | 強み・特性（配列） |
+| skills | JSONB | | スキル評価（配列） |
+| growth_stability_score | SMALLINT | 0-100 | A. 志向: 0=安定/待遇重視 ↔ 100=成長/挑戦重視 |
+| specialist_generalist_score | SMALLINT | 0-100 | A. 志向: 0=ゼネラリスト ↔ 100=スペシャリスト |
+| individual_team_score | SMALLINT | 0-100 | A. 志向: 0=個人型 ↔ 100=チーム型 |
+| autonomy_guidance_score | SMALLINT | 0-100 | A. 志向: 0=指導希望 ↔ 100=裁量希望 |
+| logical_thinking_score | SMALLINT | 0-100 | B. 能力: 論理的思考力 |
+| communication_score | SMALLINT | 0-100 | B. 能力: コミュニケーション力 |
+| writing_skill_score | SMALLINT | 0-100 | B. 能力: 文章表現力 |
+| leadership_score | SMALLINT | 0-100 or NULL | B. 能力: リーダーシップ（推定不能時は NULL） |
+| activity_volume_score | SMALLINT | 0-100 | C. 活動量: 4プロダクト横断の相対評価 |
+| interested_industries | TEXT[] | サーバ層で max 5 要素を強制 | D. 興味業界 Top5（順序 = 関心度順）。許容値は 03-02「カテゴリの語彙管理」参照 |
+| interested_job_types | TEXT[] | サーバ層で max 5 要素を強制 | D. 興味職種（Claude 推定）。許容値は 03-02「カテゴリの語彙管理」参照 |
+| score_confidence | SMALLINT | 0-100 | 元データの充実度。低いとスコアは「参考値」扱い |
 | generated_at | TIMESTAMPTZ | DEFAULT now() | 生成日時 |
 | model_version | TEXT | | 使用AIモデル |
 
@@ -1311,10 +1333,19 @@ RLS は行単位のアクセス制御のみ。カラム単位の制限や頻出 
 | bio | students.bio | 自己紹介文 |
 | summary | student_integrated_profiles.summary | AIによる人物要約 |
 | strengths | student_integrated_profiles.strengths | 強み・特性 |
-| interests | student_integrated_profiles.interests | 志望業界・企業群 |
 | skills | student_integrated_profiles.skills | スキル評価 |
-| preferred_work_locations | student_integrated_profiles.preferred_work_locations | 志望勤務先 |
-| activity_level | student_integrated_profiles.activity_level | 就活活動量 |
+| growth_stability_score | student_integrated_profiles.growth_stability_score | 志向スコア: 安定 ↔ 成長 |
+| specialist_generalist_score | student_integrated_profiles.specialist_generalist_score | 志向スコア: 汎用 ↔ 専門 |
+| individual_team_score | student_integrated_profiles.individual_team_score | 志向スコア: 個人 ↔ チーム |
+| autonomy_guidance_score | student_integrated_profiles.autonomy_guidance_score | 志向スコア: 指導 ↔ 裁量 |
+| logical_thinking_score | student_integrated_profiles.logical_thinking_score | 能力: 論理的思考力 |
+| communication_score | student_integrated_profiles.communication_score | 能力: コミュニケーション力 |
+| writing_skill_score | student_integrated_profiles.writing_skill_score | 能力: 文章表現力 |
+| leadership_score | student_integrated_profiles.leadership_score | 能力: リーダーシップ（NULL 許容） |
+| activity_volume_score | student_integrated_profiles.activity_volume_score | 活動量スコア（相対） |
+| interested_industries | student_integrated_profiles.interested_industries | 興味業界 Top5（順序 = 関心度） |
+| interested_job_types | student_integrated_profiles.interested_job_types | 興味職種 |
+| score_confidence | student_integrated_profiles.score_confidence | スコアの信頼度 |
 
 **抽出条件:** `is_profile_public = true` AND `deleted_at IS NULL` AND `data_consent_granted_at IS NOT NULL`
 

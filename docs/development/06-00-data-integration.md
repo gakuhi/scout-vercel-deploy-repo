@@ -513,14 +513,25 @@ data_consent_granted_at を記録
 
 ### 出力（`student_integrated_profiles` に保存）
 
+スキーマは [03-02-matching-design.md](03-02-matching-design.md) に準拠。
+
 | カラム | 内容 |
 |---|---|
-| `summary` | AIによる人物要約（200〜300文字） |
-| `strengths` | 強み（JSONB配列） |
-| `interests` | 興味・志望分野（JSONB配列） |
-| `skills` | スキル（JSONB配列） |
-| `preferred_work_locations` | 希望勤務地（JSONB配列） |
-| `activity_level` | 行動量レベル（low / medium / high / very_high） |
+| `summary` | AIによる人物要約（2〜3文） |
+| `strengths` | 強み（JSONB 配列） |
+| `skills` | スキル（JSONB 配列） |
+| `growth_stability_score` | 志向スコア: 0=安定 ↔ 100=成長 |
+| `specialist_generalist_score` | 志向スコア: 0=ゼネラリスト ↔ 100=スペシャリスト |
+| `individual_team_score` | 志向スコア: 0=個人 ↔ 100=チーム |
+| `autonomy_guidance_score` | 志向スコア: 0=指導 ↔ 100=裁量 |
+| `logical_thinking_score` | 能力スコア: 論理的思考力（0-100） |
+| `communication_score` | 能力スコア: コミュニケーション力（0-100） |
+| `writing_skill_score` | 能力スコア: 文章表現力（0-100） |
+| `leadership_score` | 能力スコア: リーダーシップ（0-100、推定不能時は NULL） |
+| `activity_volume_score` | 活動量スコア: 4プロダクト横断の相対評価（0-100） |
+| `interested_industries` | 興味業界 Top5（`TEXT[]`、最大 5 要素、順序 = 関心度順）。許容値は 03-02「カテゴリの語彙管理」参照 |
+| `interested_job_types` | 興味職種（`TEXT[]`、最大 5 要素） |
+| `score_confidence` | スコア信頼度（0-100） |
 | `generated_at` | 生成日時 |
 | `model_version` | 使用モデル（例: `claude-sonnet-4-6`） |
 

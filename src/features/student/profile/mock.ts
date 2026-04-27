@@ -1,60 +1,9 @@
-/** 業界カテゴリ（仕様書 industry_category に準拠） */
-export type IndustryCategory =
-  | "it_software"
-  | "consulting"
-  | "finance"
-  | "trading_company"
-  | "manufacturing"
-  | "advertising_media"
-  | "retail_service"
-  | "real_estate"
-  | "infrastructure"
-  | "public_sector"
-  | "other";
-
-/** 職種カテゴリ（仕様書 job_category に準拠） */
-export type JobCategory =
-  | "engineer_it"
-  | "engineer_other"
-  | "designer"
-  | "sales"
-  | "marketing"
-  | "planning"
-  | "corporate"
-  | "consultant"
-  | "research"
-  | "other";
-
-export const industryLabels: Record<IndustryCategory, string> = {
-  it_software: "IT・ソフトウェア",
-  consulting: "コンサル",
-  finance: "金融",
-  trading_company: "商社",
-  manufacturing: "メーカー",
-  advertising_media: "広告・メディア",
-  retail_service: "小売・サービス",
-  real_estate: "不動産・建設",
-  infrastructure: "インフラ",
-  public_sector: "公務員・教育・医療",
-  other: "その他",
-};
-
-export const jobCategoryLabels: Record<JobCategory, string> = {
-  engineer_it: "ITエンジニア",
-  engineer_other: "技術職",
-  designer: "デザイナー",
-  sales: "営業",
-  marketing: "マーケティング",
-  planning: "企画・事業開発",
-  corporate: "コーポレート",
-  consultant: "コンサルタント",
-  research: "研究職",
-  other: "その他",
-};
+import type { IndustryCategory } from "@/shared/constants/industries";
+import type { JobCategory } from "@/shared/constants/job-categories";
 
 /**
- * 就活活動量（student_integrated_profiles.activity_level の enum）。
- * プレビュー画面の「就活活動量」カードで表示する。
+ * 就活活動量の 3 段階 enum。UI 表示用に activity_volume_score (0-100) から導出する。
+ * 0-30=low / 31-60=medium / 61-100=high。
  */
 export type ActivityLevel = "low" | "medium" | "high";
 
@@ -77,12 +26,12 @@ export type IntegratedProfile = {
   writingSkillScore: number | null;
   leadershipScore: number | null;
 
-  /** C. 活動量スコア（相対: 0-100） — レガシー。プレビューでは activityLevel を使用する */
+  /** C. 活動量スコア（相対: 0-100）。`student_integrated_profiles.activity_volume_score` */
   activityVolumeScore: number | null;
 
   /**
-   * C. 就活活動量（`student_integrated_profiles.activity_level` の 3 段階 enum）。
-   * プレビュー画面ではこちらを表示する。
+   * C. 就活活動量の 3 段階 enum。`activity_volume_score` から UI 側で導出する派生値。
+   * DB には持たない。
    */
   activityLevel: ActivityLevel | null;
 
@@ -90,8 +39,8 @@ export type IntegratedProfile = {
   interestedIndustries: IndustryCategory[];
   interestedJobTypes: JobCategory[];
 
-  /** メタ */
-  scoreConfidence: number;
+  /** メタ。プロフィール未生成時は null */
+  scoreConfidence: number | null;
 };
 
 /** 各プロダクトの同期済みデータアイテム（最新 N 件） */

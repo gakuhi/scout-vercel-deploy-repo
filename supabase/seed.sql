@@ -89,9 +89,28 @@ VALUES
   ('ext-interview-001', 'session-001', '個人面接', 75, '{"logicalStructure": 80, "qaSkill": 70, "responseContent": 75}', now());
 
 -- ----- student_integrated_profiles (学生Aのみ) -----
-INSERT INTO student_integrated_profiles (student_id, summary, strengths, interests, skills, preferred_work_locations, activity_level, generated_at, model_version)
+-- 03-02-matching-design.md に準拠したスコアベースのプロフィール
+INSERT INTO student_integrated_profiles (
+  student_id, summary, strengths, skills,
+  growth_stability_score, specialist_generalist_score, individual_team_score, autonomy_guidance_score,
+  logical_thinking_score, communication_score, writing_skill_score, leadership_score,
+  activity_volume_score,
+  interested_industries, interested_job_types,
+  score_confidence, generated_at, model_version
+)
 VALUES
-  ('11111111-1111-1111-1111-111111111111', 'AI技術に関心が高く行動力のある学生', '["論理的思考", "プログラミング"]', '["IT", "AI"]', '["Python", "機械学習"]', '["東京", "大阪"]', 'high', now(), 'claude-sonnet-4-6');
+  (
+    '11111111-1111-1111-1111-111111111111',
+    'AI技術に関心が高く行動力のある学生',
+    '["論理的思考", "プログラミング"]',
+    '["Python", "機械学習"]',
+    82, 70, 55, 65,
+    80, 68, 70, 60,
+    75,
+    ARRAY['it_software', 'consulting']::text[],
+    ARRAY['engineer_it']::text[],
+    65, now(), 'claude-sonnet-4-6'
+  );
 
 -- ----- job_postings -----
 INSERT INTO job_postings (id, company_id, created_by, title, description, job_category, is_published, published_at, created_at)

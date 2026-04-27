@@ -131,15 +131,15 @@ describe("getProfileViewData", () => {
     expect(result!.avatarInitials).toBe("?");
   });
 
-  it("統合プロフィールがある場合はスコアに値が入る", async () => {
+  it("統合プロフィールがある場合は summary/strengths/skills を転写する", async () => {
     setupMockSupabase({
       integratedProfile: integratedProfileRow(),
     });
 
     const result = await getProfileViewData();
-    expect(result!.integratedProfile.logicalThinkingScore).toBe(50);
-    expect(result!.integratedProfile.leadershipScore).toBe(50);
     expect(result!.integratedProfile.summary).toBe("論理性が高い学生");
+    expect(result!.integratedProfile.strengths).toEqual(["論理的思考", "リーダーシップ"]);
+    expect(result!.integratedProfile.skills).toEqual(["Python", "SQL"]);
   });
 
   it("統合プロフィールがない場合はスコアが全て null になる", async () => {
@@ -151,6 +151,7 @@ describe("getProfileViewData", () => {
     expect(result!.integratedProfile.growthStabilityScore).toBeNull();
     expect(result!.integratedProfile.activityVolumeScore).toBeNull();
     expect(result!.integratedProfile.leadershipScore).toBeNull();
+    expect(result!.integratedProfile.scoreConfidence).toBeNull();
   });
 
   it("統合プロフィールがない場合はデフォルトのサマリーを返す", async () => {
@@ -348,15 +349,14 @@ describe("getProfileViewData", () => {
     expect(result!.mbtiTypeName).toBeNull();
   });
 
-  // ─── 興味関心（interests JSONB） ───
+  // ─── 興味タグ（interested_industries / interested_job_types は DB 上 TEXT[]、
+  //     許容値外はサーバ層で filter する） ───
 
-  it("interests JSONB から industries / jobTypes を抽出する", async () => {
+  it("許容値の interested_industries / interested_job_types はそのまま返す", async () => {
     setupMockSupabase({
       integratedProfile: integratedProfileRow({
-        interests: {
-          industries: ["it_software", "consulting"],
-          jobTypes: ["engineer_it"],
-        },
+        interested_industries: ["it_software", "consulting"],
+        interested_job_types: ["engineer_it"],
       }),
     });
 
@@ -368,9 +368,12 @@ describe("getProfileViewData", () => {
     expect(result!.integratedProfile.interestedJobTypes).toEqual(["engineer_it"]);
   });
 
-  it("interests が null の場合は industries / jobTypes が空配列になる", async () => {
+  it("興味タグが null の場合は空配列になる", async () => {
     setupMockSupabase({
-      integratedProfile: integratedProfileRow({ interests: null }),
+      integratedProfile: integratedProfileRow({
+        interested_industries: null,
+        interested_job_types: null,
+      }),
     });
 
     const result = await getProfileViewData();
@@ -378,78 +381,110 @@ describe("getProfileViewData", () => {
     expect(result!.integratedProfile.interestedJobTypes).toEqual([]);
   });
 
-  it("interests の industries が配列以外の場合は空配列になる", async () => {
+  it("許容値外の値（旧 Claude プロンプトの語彙ズレ等）は読込時に filter される", async () => {
     setupMockSupabase({
       integratedProfile: integratedProfileRow({
-        interests: { industries: "invalid", jobTypes: [] },
-      }),
-    });
-
-    const result = await getProfileViewData();
-    expect(result!.integratedProfile.interestedIndustries).toEqual([]);
-  });
-
-  it("interests の要素に文字列以外が混じっている場合はフィルタされる", async () => {
-    setupMockSupabase({
-      integratedProfile: integratedProfileRow({
-        interests: {
-          industries: ["it_software", 123, null, "finance"],
-          jobTypes: [],
-        },
+        // "internet_web" は industry_category に存在しない、null/数値はそもそも型外
+        interested_industries: ["it_software", "internet_web", null, 123, "consulting"],
+        // "engineer" は job_category に存在しない（engineer_it / engineer_other に分割されている）
+        interested_job_types: ["engineer_it", "engineer", "unknown"],
       }),
     });
 
     const result = await getProfileViewData();
     expect(result!.integratedProfile.interestedIndustries).toEqual([
       "it_software",
-      "finance",
+      "consulting",
     ]);
+    expect(result!.integratedProfile.interestedJobTypes).toEqual(["engineer_it"]);
   });
 
-  // ─── 就活活動量（activity_level TEXT） ───
+  // ─── 就活活動量（activity_volume_score から activityLevel を導出） ───
 
-  it("activity_level = 'high' の場合は activityLevel に 'high' が入る", async () => {
+  it("activity_volume_score = 80 の場合は activityLevel が 'high' になる", async () => {
     setupMockSupabase({
-      integratedProfile: integratedProfileRow({ activity_level: "high" }),
+      integratedProfile: integratedProfileRow({ activity_volume_score: 80 }),
     });
 
     const result = await getProfileViewData();
     expect(result!.integratedProfile.activityLevel).toBe("high");
   });
 
-  it("activity_level = 'medium' の場合は activityLevel に 'medium' が入る", async () => {
+  it("activity_volume_score = 50 の場合は activityLevel が 'medium' になる", async () => {
     setupMockSupabase({
-      integratedProfile: integratedProfileRow({ activity_level: "medium" }),
+      integratedProfile: integratedProfileRow({ activity_volume_score: 50 }),
     });
 
     const result = await getProfileViewData();
     expect(result!.integratedProfile.activityLevel).toBe("medium");
   });
 
-  it("activity_level = 'low' の場合は activityLevel に 'low' が入る", async () => {
+  it("activity_volume_score = 10 の場合は activityLevel が 'low' になる", async () => {
     setupMockSupabase({
-      integratedProfile: integratedProfileRow({ activity_level: "low" }),
+      integratedProfile: integratedProfileRow({ activity_volume_score: 10 }),
     });
 
     const result = await getProfileViewData();
     expect(result!.integratedProfile.activityLevel).toBe("low");
   });
 
-  it("activity_level が想定外の値の場合は activityLevel が null になる", async () => {
+  it("activity_volume_score が null の場合は activityLevel が null になる", async () => {
     setupMockSupabase({
-      integratedProfile: integratedProfileRow({ activity_level: "extreme" }),
+      integratedProfile: integratedProfileRow({ activity_volume_score: null }),
     });
 
     const result = await getProfileViewData();
     expect(result!.integratedProfile.activityLevel).toBeNull();
   });
 
-  it("activity_level が null の場合は activityLevel が null になる", async () => {
+  // 境界値: 0-30=low / 31-60=medium / 61-100=high
+  it.each([
+    [0, "low"],
+    [30, "low"],
+    [31, "medium"],
+    [60, "medium"],
+    [61, "high"],
+    [100, "high"],
+  ] as const)(
+    "activity_volume_score = %i の場合は activityLevel = '%s'（境界値）",
+    async (score, expected) => {
+      setupMockSupabase({
+        integratedProfile: integratedProfileRow({ activity_volume_score: score }),
+      });
+
+      const result = await getProfileViewData();
+      expect(result!.integratedProfile.activityLevel).toBe(expected);
+    },
+  );
+
+  // ─── 各スコアカラムをそのまま UI に渡す ───
+
+  it("各スコアカラムを UI のフィールドへ素直に転写する", async () => {
     setupMockSupabase({
-      integratedProfile: integratedProfileRow({ activity_level: null }),
+      integratedProfile: integratedProfileRow({
+        growth_stability_score: 82,
+        specialist_generalist_score: 65,
+        individual_team_score: 45,
+        autonomy_guidance_score: 70,
+        logical_thinking_score: 75,
+        communication_score: 68,
+        writing_skill_score: 72,
+        leadership_score: 60,
+        activity_volume_score: 85,
+        score_confidence: 75,
+      }),
     });
 
     const result = await getProfileViewData();
-    expect(result!.integratedProfile.activityLevel).toBeNull();
+    expect(result!.integratedProfile.growthStabilityScore).toBe(82);
+    expect(result!.integratedProfile.specialistGeneralistScore).toBe(65);
+    expect(result!.integratedProfile.individualTeamScore).toBe(45);
+    expect(result!.integratedProfile.autonomyGuidanceScore).toBe(70);
+    expect(result!.integratedProfile.logicalThinkingScore).toBe(75);
+    expect(result!.integratedProfile.communicationScore).toBe(68);
+    expect(result!.integratedProfile.writingSkillScore).toBe(72);
+    expect(result!.integratedProfile.leadershipScore).toBe(60);
+    expect(result!.integratedProfile.activityVolumeScore).toBe(85);
+    expect(result!.integratedProfile.scoreConfidence).toBe(75);
   });
 });

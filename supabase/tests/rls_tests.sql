@@ -541,7 +541,7 @@ SET request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
 SET request.jwt.claims = '{"app_metadata": {"role": "company_owner"}}';
 SET ROLE authenticated;
 SELECT '=== 8-2: 審査済み企業 → searchable_students (1行+AI情報) ===' AS test;
-SELECT id, university, summary, activity_level FROM searchable_students;
+SELECT id, university, summary, activity_volume_score, score_confidence FROM searchable_students;
 RESET ROLE;
 
 -- 8-3: 未審査企業がpublic_studentsを閲覧できない (期待: 0行)

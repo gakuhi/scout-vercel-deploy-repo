@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { industrySchema, type IndustryCategory } from "@/shared/constants/industries";
+import { jobCategorySchema, type JobCategory } from "@/shared/constants/job-categories";
 import type {
   SyncedEsItem,
   SyncedInterviewItem,
@@ -10,8 +12,6 @@ import type {
   SyncedResearchItem,
   SyncedSugoshuItem,
   ActivityLevel,
-  IndustryCategory,
-  JobCategory,
   ProfileMock,
 } from "@/features/student/profile/mock";
 import { profileSchema } from "@/features/student/profile/schema";
@@ -22,6 +22,14 @@ const SYNCED_LIMIT = 5;
 export type ProfileActionState = {
   error?: string;
 };
+
+// activity_volume_score (0-100) から UI 表示用の 3 段階 enum を導出する
+function deriveActivityLevel(score: number | null): ActivityLevel | null {
+  if (score == null) return null;
+  if (score <= 30) return "low";
+  if (score <= 60) return "medium";
+  return "high";
+}
 
 export async function getProfile() {
   const supabase = await createClient();
@@ -322,29 +330,20 @@ export async function getProfileViewData(): Promise<ProfileMock | null> {
     : [];
   const skills = Array.isArray(ip?.skills) ? (ip.skills as string[]) : [];
 
-  // interests JSONB は { industries: string[], jobTypes: string[] } 構造で保存する想定。
-  // スキーマ未定義のため、防御的にパースして欠損・型不一致は空配列扱いとする。
-  const rawInterests = ip?.interests as
-    | { industries?: unknown; jobTypes?: unknown }
-    | null
-    | undefined;
-  const interestedIndustries = Array.isArray(rawInterests?.industries)
-    ? (rawInterests.industries.filter(
-      (v): v is string => typeof v === "string",
-    ) as IndustryCategory[])
-    : [];
-  const interestedJobTypes = Array.isArray(rawInterests?.jobTypes)
-    ? (rawInterests.jobTypes.filter(
-      (v): v is string => typeof v === "string",
-    ) as JobCategory[])
-    : [];
+  // 興味タグは DB 上 TEXT[] で語彙制約なし（設計書 03-02 / migration 20260421000000 参照）。
+  // 許容値外（例: 旧 Claude プロンプトが生成した未定義タグ）はラベル解決で undefined になるため、
+  // 読込時に zod schema で filter して落とす。
+  const interestedIndustries = (ip?.interested_industries ?? []).filter(
+    (v: string): v is IndustryCategory => industrySchema.safeParse(v).success,
+  );
+  const interestedJobTypes = (ip?.interested_job_types ?? []).filter(
+    (v: string): v is JobCategory => jobCategorySchema.safeParse(v).success,
+  );
 
-  // activity_level は TEXT カラム。想定値以外が入っていた場合は null 扱い
-  const rawActivity = ip?.activity_level;
-  const activityLevel: ActivityLevel | null =
-    rawActivity === "low" || rawActivity === "medium" || rawActivity === "high"
-      ? rawActivity
-      : null;
+  // UI の ActivityLevel（low/medium/high）は activity_volume_score から導出する
+  const activityLevel: ActivityLevel | null = deriveActivityLevel(
+    ip?.activity_volume_score ?? null,
+  );
 
   // Supabase の型推論で結合結果が単体 / 配列のどちらにもなり得るため両対応
   type MbtiJoinRow = { type_code?: string | null; name_ja?: string | null };
@@ -376,22 +375,19 @@ export async function getProfileViewData(): Promise<ProfileMock | null> {
       summary: ip?.summary ?? "4プロダクトとの連携後にAI統合プロフィールが生成されます。",
       strengths,
       skills,
-      // TODO: student_integrated_profiles に各スコアカラム
-      // （growth_stability_score 等）を追加して参照する。現状は UI プレースホルダで
-      // 統合プロフィールの存在有無のみで 50/null を返している。
-      growthStabilityScore: ip ? 50 : null,
-      specialistGeneralistScore: ip ? 50 : null,
-      individualTeamScore: ip ? 50 : null,
-      autonomyGuidanceScore: ip ? 50 : null,
-      logicalThinkingScore: ip ? 50 : null,
-      communicationScore: ip ? 50 : null,
-      writingSkillScore: ip ? 50 : null,
-      leadershipScore: ip ? 50 : null,
-      activityVolumeScore: ip ? 0 : null,
+      growthStabilityScore: ip?.growth_stability_score ?? null,
+      specialistGeneralistScore: ip?.specialist_generalist_score ?? null,
+      individualTeamScore: ip?.individual_team_score ?? null,
+      autonomyGuidanceScore: ip?.autonomy_guidance_score ?? null,
+      logicalThinkingScore: ip?.logical_thinking_score ?? null,
+      communicationScore: ip?.communication_score ?? null,
+      writingSkillScore: ip?.writing_skill_score ?? null,
+      leadershipScore: ip?.leadership_score ?? null,
+      activityVolumeScore: ip?.activity_volume_score ?? null,
       activityLevel,
       interestedIndustries,
       interestedJobTypes,
-      scoreConfidence: 0,
+      scoreConfidence: ip?.score_confidence ?? null,
     },
     productCounts: await getProductCounts(supabase, linksRes.data ?? []),
     syncedItems: await getSyncedItems(supabase, linksRes.data ?? []),
