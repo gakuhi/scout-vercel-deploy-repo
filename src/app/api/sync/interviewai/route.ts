@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncAllConsented, syncUser } from "@/lib/sync/interviewai";
-import { isValidCronRequest } from "@/lib/sync/shared";
+import { requireCronAuth } from "@/lib/sync/shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,9 +15,8 @@ export const maxDuration = 300;
  * 認証: `Authorization: Bearer <CRON_SECRET>`
  */
 export async function POST(request: NextRequest) {
-  if (!isValidCronRequest(request.headers)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const authError = requireCronAuth(request.headers);
+  if (authError) return authError;
 
   const contentLength = Number(request.headers.get("content-length") ?? "0");
   const body: unknown = contentLength > 0 ? await request.json() : {};

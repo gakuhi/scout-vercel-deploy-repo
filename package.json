@@ -17,6 +17,8 @@
     "prepare": "git config core.hooksPath .github/hooks"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
+    "@google/genai": "^1.50.1",
     "@hookform/resolvers": "^5.2.2",
     "@planetscale/database": "^1.20.1",
     "@sentry/nextjs": "^10.49.0",

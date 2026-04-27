@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   isValidCronRequest,
+  requireCronAuth,
   runSyncUser,
   type SyncUserResult,
 } from "../shared";
@@ -78,6 +79,41 @@ describe("lib/sync/shared", () => {
       const h2 = new Headers({ Authorization: "Bearer correct-secret" });
       expect(isValidCronRequest(h1)).toBe(true);
       expect(isValidCronRequest(h2)).toBe(true);
+    });
+  });
+
+  describe("requireCronAuth", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("CRON_SECRET 未設定時は 500 を返す（fail-closed）", async () => {
+      vi.stubEnv("CRON_SECRET", "");
+      const headers = new Headers({ authorization: "Bearer anything" });
+
+      const res = requireCronAuth(headers);
+
+      expect(res).not.toBeNull();
+      expect(res!.status).toBe(500);
+      const body = await res!.json();
+      expect(body.error).toMatch(/CRON_SECRET/);
+    });
+
+    it("認証失敗時は 401 を返す", async () => {
+      vi.stubEnv("CRON_SECRET", "correct-secret");
+      const headers = new Headers({ authorization: "Bearer wrong-secret" });
+
+      const res = requireCronAuth(headers);
+
+      expect(res).not.toBeNull();
+      expect(res!.status).toBe(401);
+    });
+
+    it("認証成功時は null を返す", () => {
+      vi.stubEnv("CRON_SECRET", "correct-secret");
+      const headers = new Headers({ authorization: "Bearer correct-secret" });
+
+      expect(requireCronAuth(headers)).toBeNull();
     });
   });
 

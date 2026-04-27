@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/shared/types/database";
 
@@ -80,6 +81,25 @@ export function isValidCronRequest(headers: Headers): boolean {
   if (!secret) return false;
   const auth = headers.get("authorization");
   return auth === `Bearer ${secret}`;
+}
+
+/**
+ * route handler 用の Cron 認証ガード。NextResponse を返したらその場で return すればよい。
+ * - CRON_SECRET 未設定: 500 (fail-closed。素通り公開を防ぐため 401 ではなく設定エラーとして扱う)
+ * - 認証失敗: 401
+ * - 認証成功: null
+ */
+export function requireCronAuth(headers: Headers): NextResponse | null {
+  if (!process.env.CRON_SECRET) {
+    return NextResponse.json(
+      { error: "CRON_SECRET が未設定です。環境変数を設定してから呼び出してください" },
+      { status: 500 },
+    );
+  }
+  if (!isValidCronRequest(headers)) {
+    return NextResponse.json({ error: "認証に失敗しました" }, { status: 401 });
+  }
+  return null;
 }
 
 /**
