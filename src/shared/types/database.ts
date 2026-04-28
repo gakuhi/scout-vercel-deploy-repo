@@ -329,33 +329,45 @@ export type Database = {
       }
       event_registrations: {
         Row: {
+          applicant_affiliation: string | null
+          applicant_email: string | null
+          applicant_name: string | null
           applied_at: string | null
           cancelled_at: string | null
           created_at: string | null
           event_id: string
           id: string
+          motivation: string | null
           status:
             | Database["public"]["Enums"]["event_registration_status"]
             | null
           student_id: string
         }
         Insert: {
+          applicant_affiliation?: string | null
+          applicant_email?: string | null
+          applicant_name?: string | null
           applied_at?: string | null
           cancelled_at?: string | null
           created_at?: string | null
           event_id: string
           id?: string
+          motivation?: string | null
           status?:
             | Database["public"]["Enums"]["event_registration_status"]
             | null
           student_id: string
         }
         Update: {
+          applicant_affiliation?: string | null
+          applicant_email?: string | null
+          applicant_name?: string | null
           applied_at?: string | null
           cancelled_at?: string | null
           created_at?: string | null
           event_id?: string
           id?: string
+          motivation?: string | null
           status?:
             | Database["public"]["Enums"]["event_registration_status"]
             | null
@@ -1523,6 +1535,10 @@ export type Database = {
     }
     Functions: {
       get_company_id: { Args: never; Returns: string }
+      get_event_applied_counts: {
+        Args: { event_ids: string[] }
+        Returns: { event_id: string; applied_count: number }[]
+      }
       get_user_role: { Args: never; Returns: string }
       is_company_verified: { Args: never; Returns: boolean }
     }
