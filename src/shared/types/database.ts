@@ -834,7 +834,6 @@ export type Database = {
           event_reminder: boolean | null
           id: string
           in_app_enabled: boolean | null
-          line_enabled: boolean | null
           scout_received: boolean | null
           student_id: string
           system_announcement: boolean | null
@@ -845,7 +844,6 @@ export type Database = {
           event_reminder?: boolean | null
           id?: string
           in_app_enabled?: boolean | null
-          line_enabled?: boolean | null
           scout_received?: boolean | null
           student_id: string
           system_announcement?: boolean | null
@@ -856,7 +854,6 @@ export type Database = {
           event_reminder?: boolean | null
           id?: string
           in_app_enabled?: boolean | null
-          line_enabled?: boolean | null
           scout_received?: boolean | null
           student_id?: string
           system_announcement?: boolean | null

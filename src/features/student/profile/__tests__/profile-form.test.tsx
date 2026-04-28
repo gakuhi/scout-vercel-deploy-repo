@@ -110,7 +110,7 @@ describe("ProfileForm (mode=create) 公開トグル", () => {
     render(<ProfileForm mode="create" profile={emptyProfile("u@example.com")} mbtiTypes={mbtiTypes} />);
     expect(screen.getByText("プロフィールを企業に公開")).toBeInTheDocument();
     expect(
-      screen.getByText(/公開すると企業の検索結果にあなたのプロフィールが表示されます/),
+      screen.getByText(/ON にすると企業に公開され、スカウト受信されます/),
     ).toBeInTheDocument();
   });
 });

@@ -382,7 +382,7 @@ export function ProfileForm(props: ProfileFormProps) {
             <div>
               <p className="text-sm font-bold text-on-surface">プロフィールを企業に公開</p>
               <p className="text-[11px] text-on-surface-variant mt-0.5">
-                公開すると企業の検索結果にあなたのプロフィールが表示されます
+                ON にすると企業に公開され、スカウト受信されます。OFF にすると企業からは見えず、新規スカウトも届きません。
               </p>
             </div>
             <label

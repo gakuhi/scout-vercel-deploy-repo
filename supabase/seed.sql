@@ -139,10 +139,10 @@ VALUES
   ('33333333-3333-3333-3333-333333333333', 'scout_accepted', 'スカウトが承諾されました', '田中太郎さんがスカウトを承諾しました', 'scouts', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', now());
 
 -- ----- student_notification_settings -----
-INSERT INTO student_notification_settings (student_id, scout_received, chat_message, line_enabled, in_app_enabled)
+INSERT INTO student_notification_settings (student_id, scout_received, chat_message, in_app_enabled)
 VALUES
-  ('11111111-1111-1111-1111-111111111111', true, true, true, true),
-  ('22222222-2222-2222-2222-222222222222', true, true, true, true);
+  ('11111111-1111-1111-1111-111111111111', true, true, true),
+  ('22222222-2222-2222-2222-222222222222', true, true, true);
 
 -- ----- company_notification_settings -----
 INSERT INTO company_notification_settings (company_member_id, scout_accepted, chat_message, line_enabled, in_app_enabled)

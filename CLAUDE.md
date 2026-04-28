@@ -18,6 +18,12 @@
 - カバレッジ設定の `all` や `include` は Vitest v4 の型定義に存在しないため `@ts-expect-error` を使用している。Vitest のメジャーアップデート時に不要になれば削除すること
 - ESLint が `@ts-ignore` を禁止しているため、必ず `@ts-expect-error` を使うこと
 
+## Supabase マイグレーション・型生成のルール
+- マイグレーションを追加・変更したら、`src/shared/types/database.ts` を `npm run gen:types` で再生成すること（手編集は最終手段。再生成時に上書きされる）
+- `gen:types` は `SUPABASE_PROJECT_ID` を見てリモート Supabase からスキーマを取得するため、**実行前にローカル / リモートの最新マイグレーションが適用された状態**にすること（未適用のままだと旧スキーマで再生成されて差分が消える）
+- マイグレーションファイル名は `YYYYMMDDhhmmss_<snake_case_summary>.sql`。drop 系は `IF EXISTS` で冪等にすること
+- 同一 PR 内で `add` → `drop` するようなチャーンは避け、PR がまだ未マージ・本番未適用ならそもそも `add` 側を消してマージ後の履歴を綺麗に保つ
+
 ## ドキュメント・コード説明のルール
 - コード例を書く時は `import` 文も必ず含めること
 - 架空の関数や存在しないコードを例に使う場合は、その旨を明記すること

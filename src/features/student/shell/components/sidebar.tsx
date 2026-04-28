@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/ui/icon";
+import { NotificationBell } from "@/features/student/notifications/components/notification-bell";
 import { cn } from "@/shared/utils/cn";
 import { STUDENT_NAV_ITEMS, resolveActiveNavKey } from "../nav-items";
 
@@ -74,6 +75,9 @@ export function Sidebar({
         </div>
 
         <div className="border-t border-surface-container pt-6 space-y-2">
+          <div className="px-2 mb-2">
+            <NotificationBell />
+          </div>
           {user && (
             <div className="flex items-center gap-3 px-4 mb-4">
               {user.imageUrl ? (
