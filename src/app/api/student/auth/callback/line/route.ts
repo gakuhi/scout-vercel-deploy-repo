@@ -211,7 +211,9 @@ async function handleProductRegistration(
   const admin = createAdminClient();
   // プロダクトから HMAC 署名付きで受け取った email を優先。LINE の email scope が
   // 付与されていないケース（LINE ビジネスアカウント等）でも突合キーが確保できる。
-  const email = state.email ?? lineUser.email;
+  // state.email は zod schema 上 "" を許容しているので、空文字は falsy fallback で
+  // 落とす（`??` だと "" は nullish 扱いされず empty が下流に流れる）。
+  const email = state.email || lineUser.email;
 
   // 既存アカウントチェック
   const existing = await findExistingStudent(admin, lineUser.sub, email);
@@ -230,13 +232,21 @@ async function handleProductRegistration(
     }
   } else {
     // 新規アカウント作成（LINE 情報のみ。プロダクトAPI連携は後回し）
-    const studentEmail = email ?? `${lineUser.sub}@line.scout.local`;
+    // email が "" / undefined のいずれの場合も fallback に落ちるよう ?? ではなく || を使う
+    const studentEmail = email || `${lineUser.sub}@line.scout.local`;
 
     const { data: newUser, error: authError } =
       await admin.auth.admin.createUser({
         email: studentEmail,
         email_confirm: true,
-        app_metadata: { role: "student" },
+        app_metadata: {
+          role: "student",
+          // handleDirectLogin と揃えて provider/providers を明示する。これが無いと
+          // Supabase が verifyOtp 時に provider を email として上書きし、JWT の
+          // app_metadata から role が落ちる事象が発生していた。
+          provider: "line",
+          providers: ["line"],
+        },
         user_metadata: {
           line_uid: lineUser.sub,
           line_display_name: lineUser.name,
@@ -353,9 +363,10 @@ async function handleProductRegistration(
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
   if (baseUrl && redirectUrl.origin === baseUrl) {
     // 既存ユーザーは findExistingStudent で取れた email、新規ユーザーは
-    // 直前に createUser で使った値（email ?? `${sub}@line.scout.local`）と一致させる。
+    // 直前に createUser で使った値（email || `${sub}@line.scout.local`）と一致させる。
+    // existing.email も "" の可能性があるため、ここも falsy fallback (||) を使う。
     const sessionEmail =
-      existing?.email ?? email ?? `${lineUser.sub}@line.scout.local`;
+      existing?.email || email || `${lineUser.sub}@line.scout.local`;
 
     const { data: linkData, error: linkError } =
       await admin.auth.admin.generateLink({
