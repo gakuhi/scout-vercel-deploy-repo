@@ -14,13 +14,17 @@ export type ProductSource = z.infer<typeof productSourceSchema>;
 
 /**
  * callback URL のホワイトリスト
- * 各プロダクトのドメインを登録する
+ *
+ * 各プロダクトのドメインに加え、scout 自身（`NEXT_PUBLIC_BASE_URL`）も許可する。
+ * scout 自身を指定するケースは「既存プロダクト学生がスカウト本体に着地して
+ * 使い始める」導線で使われ、callback ハンドラ側でセッションも確立する（issue #253）。
  */
 const ALLOWED_CALLBACK_ORIGINS = [
   process.env.ALLOWED_CALLBACK_SMARTES,
   process.env.ALLOWED_CALLBACK_INTERVIEWAI,
   process.env.ALLOWED_CALLBACK_COMPAI,
   process.env.ALLOWED_CALLBACK_SUGOSHU,
+  process.env.NEXT_PUBLIC_BASE_URL,
 ].filter(Boolean) as string[];
 
 /**

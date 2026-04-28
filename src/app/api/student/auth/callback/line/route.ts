@@ -335,7 +335,7 @@ async function handleProductRegistration(
     }
   }
 
-  // 元プロダクトにリダイレクトバック
+  // 元プロダクト（or scout 自身）にリダイレクト
   const isNewRegistration = !existing;
   const redirectUrl = new URL(state.callbackUrl!);
   redirectUrl.searchParams.set("status", "success");
@@ -346,6 +346,56 @@ async function handleProductRegistration(
 
   const response = NextResponse.redirect(redirectUrl.toString());
   response.cookies.delete("scout_csrf");
+
+  // callback が scout 自身のドメインを指している場合は Supabase セッションも
+  // 確立してから返す（issue #253）。プロダクト側へ戻るケースではセッション不要。
+  // handleDirectLogin と同じ magic link → verifyOtp 手順で response に cookie を載せる。
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  if (baseUrl && redirectUrl.origin === baseUrl) {
+    // 既存ユーザーは findExistingStudent で取れた email、新規ユーザーは
+    // 直前に createUser で使った値（email ?? `${sub}@line.scout.local`）と一致させる。
+    const sessionEmail =
+      existing?.email ?? email ?? `${lineUser.sub}@line.scout.local`;
+
+    const { data: linkData, error: linkError } =
+      await admin.auth.admin.generateLink({
+        type: "magiclink",
+        email: sessionEmail,
+      });
+
+    if (linkError || !linkData) {
+      throw new Error(
+        `セッショントークンの生成に失敗しました: ${linkError?.message}`,
+      );
+    }
+
+    const supabase = createServerClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              response.cookies.set(name, value, options);
+            });
+          },
+        },
+      },
+    );
+
+    const { error: otpError } = await supabase.auth.verifyOtp({
+      token_hash: linkData.properties.hashed_token,
+      type: "magiclink",
+    });
+
+    if (otpError) {
+      throw new Error(`セッション確立に失敗しました: ${otpError.message}`);
+    }
+  }
+
   return response;
 }
 
