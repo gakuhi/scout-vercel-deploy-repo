@@ -4,7 +4,7 @@ import prettierConfig from "eslint-config-prettier";
 
 const eslintConfig = [
   {
-    ignores: [".next/**", "node_modules/**", "playwright-report/**"],
+    ignores: [".next/**", "node_modules/**", "playwright-report/**", "coverage/**"],
   },
   ...tseslint.configs.recommended,
   {

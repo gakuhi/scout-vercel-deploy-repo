@@ -1,6 +1,8 @@
 import type { IndustryCategory } from "@/shared/constants/industries";
 import type { JobCategory } from "@/shared/constants/job-categories";
 
+export type { IndustryCategory, JobCategory };
+
 /**
  * 就活活動量の 3 段階 enum。UI 表示用に activity_volume_score (0-100) から導出する。
  * 0-30=low / 31-60=medium / 61-100=high。
@@ -105,7 +107,7 @@ export type ProfileMock = {
     icon: string;
     value: number;
   }[];
-  syncedItems: SyncedItems;
+  syncedItems?: SyncedItems;
   scoutSettings: {
     label: string;
     value: string;

@@ -16,6 +16,7 @@ import type {
 } from "@/features/student/profile/mock";
 import { profileSchema } from "@/features/student/profile/schema";
 import { buildFullName, buildInitials, checkboxToBool } from "@/features/student/profile/utils";
+import { resolveProfileImageUrl } from "@/features/student/profile/image-url";
 import { BUCKETS, uploadFile, validateFile } from "@/lib/storage";
 
 const SYNCED_LIMIT = 5;
@@ -66,26 +67,6 @@ export async function getMbtiTypes() {
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 type ProductLink = { product: string; external_user_id: string };
-
-const PROFILE_IMAGE_SIGNED_URL_TTL = 60 * 60; // 1 時間
-
-/**
- * DB 上の profile_image_url を <img src> に使える URL へ解決する。
- * - 自バケットの path（例: "uid/avatar.jpg"）→ createSignedUrl で署名 URL 発行
- * - 外部 URL（LINE CDN 等）→ そのまま返す
- * - null → null
- */
-async function resolveProfileImageUrl(
-  supabase: SupabaseClient,
-  raw: string | null,
-): Promise<string | null> {
-  if (!raw) return null;
-  if (/^https?:\/\//.test(raw)) return raw;
-  const { data } = await supabase.storage
-    .from("profile-images")
-    .createSignedUrl(raw, PROFILE_IMAGE_SIGNED_URL_TTL);
-  return data?.signedUrl ?? null;
-}
 
 async function getProductCounts(
   supabase: SupabaseClient,

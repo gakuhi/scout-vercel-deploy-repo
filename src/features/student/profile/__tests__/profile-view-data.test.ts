@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 // Supabase server client をモック
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(),
@@ -211,10 +213,10 @@ describe("getProfileViewData", () => {
     setupMockSupabase({ links: [] });
 
     const result = await getProfileViewData();
-    expect(result!.syncedItems.es).toEqual([]);
-    expect(result!.syncedItems.researches).toEqual([]);
-    expect(result!.syncedItems.interviewSessions).toEqual([]);
-    expect(result!.syncedItems.sugoshu).toEqual([]);
+    expect(result!.syncedItems!.es).toEqual([]);
+    expect(result!.syncedItems!.researches).toEqual([]);
+    expect(result!.syncedItems!.interviewSessions).toEqual([]);
+    expect(result!.syncedItems!.sugoshu).toEqual([]);
   });
 
   it("productCounts の最後のラベルが「すごい就活」になっている", async () => {

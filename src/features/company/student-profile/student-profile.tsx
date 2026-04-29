@@ -11,16 +11,19 @@ import type { ProfileMock } from "@/features/student/profile/mock";
 
 type StudentProfileProps = {
   data: ProfileMock;
+  hidePersonalInfo?: boolean;
 };
 
-export function StudentProfile({ data }: StudentProfileProps) {
+export function StudentProfile({ data, hidePersonalInfo = false }: StudentProfileProps) {
   const profile = data.integratedProfile;
 
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-12 gap-4 md:gap-8">
       <div className="col-span-12 lg:col-span-4 flex flex-col gap-4 md:gap-6">
-        <IdentityCard data={data} />
-        <ContactCard email={data.email} phone={data.phone} />
+        <IdentityCard data={data} hidePersonalInfo={hidePersonalInfo} />
+        {!hidePersonalInfo && (
+          <ContactCard email={data.email} phone={data.phone} />
+        )}
       </div>
       <div className="col-span-12 lg:col-span-8 flex flex-col gap-4 md:gap-8">
         <AiSummaryCard summary={profile.summary} />

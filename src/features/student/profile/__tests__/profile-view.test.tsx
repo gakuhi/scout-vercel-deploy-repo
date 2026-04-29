@@ -11,7 +11,7 @@ import type {
   SyncedSugoshuItem,
 } from "@/features/student/profile/mock";
 
-function emptySyncedItems(): ProfileMock["syncedItems"] {
+function emptySyncedItems(): NonNullable<ProfileMock["syncedItems"]> {
   return {
     es: [],
     researches: [],

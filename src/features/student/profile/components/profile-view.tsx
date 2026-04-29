@@ -39,10 +39,12 @@ export function ProfileView({ data }: ProfileViewProps) {
         <InterestTagsCard profile={profile} />
         <ActivityCard profile={profile} />
         <BioCard bio={data.bio} />
-        <ProductSyncSection
-          counts={data.productCounts}
-          syncedItems={data.syncedItems}
-        />
+        {data.syncedItems && (
+          <ProductSyncSection
+            counts={data.productCounts}
+            syncedItems={data.syncedItems}
+          />
+        )}
       </div>
     </div>
   );
@@ -363,7 +365,7 @@ function ProductSyncSection({
   syncedItems,
 }: {
   counts: ProfileMock["productCounts"];
-  syncedItems: ProfileMock["syncedItems"];
+  syncedItems: NonNullable<ProfileMock["syncedItems"]>;
 }) {
   return (
     <section className="space-y-6">
