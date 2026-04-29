@@ -16,6 +16,7 @@ import type {
 } from "@/features/student/profile/mock";
 import { profileSchema } from "@/features/student/profile/schema";
 import { buildFullName, buildInitials, checkboxToBool } from "@/features/student/profile/utils";
+import { BUCKETS, uploadFile, validateFile } from "@/lib/storage";
 
 const SYNCED_LIMIT = 5;
 
@@ -396,14 +397,6 @@ export async function getProfileViewData(): Promise<ProfileMock | null> {
   };
 }
 
-const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_AVATAR_MIME = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-]);
-
 /**
  * formData.get("avatar") で渡された File を profile-images バケットへアップロードし、
  * ストレージ path を返す。アップロード不要（File 無し / size 0）なら null を返す。
@@ -418,20 +411,30 @@ async function uploadAvatarFromFormData(
   if (!(avatar instanceof File) || avatar.size === 0) {
     return { path: null };
   }
-  if (avatar.size > MAX_AVATAR_SIZE) {
-    return { path: null, error: "画像サイズは 5MB 以下にしてください" };
+
+  try {
+    validateFile(avatar, BUCKETS["profile-images"]);
+  } catch (e) {
+    return {
+      path: null,
+      error: e instanceof Error ? e.message : "ファイルが不正です",
+    };
   }
-  if (!ALLOWED_AVATAR_MIME.has(avatar.type)) {
-    return { path: null, error: "JPEG / PNG / WebP / GIF のみ対応しています" };
-  }
+
   const ext = avatar.name.split(".").pop()?.toLowerCase() || "jpg";
   const path = `${userId}/avatar.${ext}`;
-  const { error: upErr } = await supabase.storage
-    .from("profile-images")
-    .upload(path, avatar, { upsert: true, contentType: avatar.type });
-  if (upErr) {
-    return { path: null, error: "画像のアップロードに失敗しました" };
+
+  try {
+    await uploadFile(supabase, "profile-images", path, avatar, {
+      upsert: true,
+    });
+  } catch (e) {
+    return {
+      path: null,
+      error: `画像のアップロードに失敗しました: ${e instanceof Error ? e.message : "不明なエラー"}`,
+    };
   }
+
   return { path };
 }
 

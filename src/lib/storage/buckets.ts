@@ -4,10 +4,6 @@ export type BucketConfig = {
 };
 
 export const BUCKETS = {
-  avatars: {
-    maxSize: 5 * 1024 * 1024,
-    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
-  },
   "company-logos": {
     maxSize: 5 * 1024 * 1024,
     allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
@@ -15,6 +11,10 @@ export const BUCKETS = {
   "job-images": {
     maxSize: 10 * 1024 * 1024,
     allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+  },
+  "profile-images": {
+    maxSize: 5 * 1024 * 1024,
+    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"],
   },
 } as const satisfies Record<string, BucketConfig>;
 
