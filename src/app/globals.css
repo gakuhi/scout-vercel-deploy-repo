@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -80,21 +81,6 @@
     -webkit-font-smoothing: antialiased;
   }
   .material-symbols-outlined {
-    font-family: "Material Symbols Outlined", sans-serif;
-    font-weight: normal;
-    font-style: normal;
-    font-size: 24px;
-    display: inline-block;
-    line-height: 1;
-    text-transform: none;
-    letter-spacing: normal;
-    word-wrap: normal;
-    white-space: nowrap;
-    direction: ltr;
-    -webkit-font-feature-settings: "liga";
-    font-feature-settings: "liga";
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
     font-variation-settings:
       "FILL" 0,
       "wght" 400,
@@ -116,6 +102,9 @@
   .glass-panel {
     background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(20px);
+  }
+  .primary-gradient {
+    background: linear-gradient(135deg, #003466 0%, #1a4b84 100%);
   }
   .image-overlay {
     background: linear-gradient(rgba(0, 31, 65, 0.15), rgba(0, 15, 30, 0.35));
