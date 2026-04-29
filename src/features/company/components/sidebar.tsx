@@ -9,6 +9,7 @@ type NavItem = {
   href: string;
   label: string;
   icon: string;
+  badge?: "unread";
 };
 
 const navItems: NavItem[] = [
@@ -19,6 +20,17 @@ const navItems: NavItem[] = [
   { href: "/company/messages", label: "メッセージ", icon: "mail" },
   { href: "/company/events", label: "イベント管理", icon: "event" },
   { href: "/company/members", label: "メンバー管理", icon: "group" },
+  {
+    href: "/company/notifications",
+    label: "通知",
+    icon: "notifications",
+    badge: "unread",
+  },
+  {
+    href: "/company/notifications/settings",
+    label: "通知設定",
+    icon: "tune",
+  },
   { href: "/company/settings", label: "企業プロフィール", icon: "corporate_fare" },
 ];
 
@@ -33,7 +45,18 @@ export type SidebarUser = {
   role: string;
 };
 
-export function Sidebar({ user }: { user?: SidebarUser }) {
+function formatUnreadBadge(count: number): string {
+  if (count >= 10) return "9+";
+  return String(count);
+}
+
+export function Sidebar({
+  user,
+  unreadCount = 0,
+}: {
+  user?: SidebarUser;
+  unreadCount?: number;
+}) {
   const pathname = usePathname();
   const displayName = user?.name || "ユーザー";
   const displayRole = user?.role ? (roleLabels[user.role] ?? user.role) : "";
@@ -51,7 +74,16 @@ export function Sidebar({ user }: { user?: SidebarUser }) {
       </div>
       <nav className="flex-1 space-y-1">
         {navItems.map((item) => {
-          const isActive = pathname?.startsWith(item.href) ?? false;
+          const isNotificationsRoot = item.href === "/company/notifications";
+          const isSettings = item.href === "/company/notifications/settings";
+          const isActive = isNotificationsRoot
+            ? pathname === "/company/notifications"
+            : isSettings
+              ? pathname?.startsWith("/company/notifications/settings") ?? false
+              : (pathname?.startsWith(item.href) ?? false);
+
+          const showBadge = item.badge === "unread" && unreadCount > 0;
+
           return (
             <Link
               key={item.href}
@@ -64,7 +96,12 @@ export function Sidebar({ user }: { user?: SidebarUser }) {
               )}
             >
               <Icon name={item.icon} />
-              <span>{item.label}</span>
+              <span className="flex-1">{item.label}</span>
+              {showBadge && (
+                <span className="bg-error text-white text-[10px] font-bold rounded-full min-w-[20px] h-5 px-1.5 grid place-items-center">
+                  {formatUnreadBadge(unreadCount)}
+                </span>
+              )}
             </Link>
           );
         })}

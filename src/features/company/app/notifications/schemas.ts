@@ -41,10 +41,7 @@ export type NotificationListItem = {
 
 export type NotificationSettings = {
   scoutAccepted: boolean;
-  scoutDeclined: boolean;
   chatMessage: boolean;
   eventReminder: boolean;
   systemAnnouncement: boolean;
-  inAppEnabled: boolean;
-  emailEnabled: boolean;
 };

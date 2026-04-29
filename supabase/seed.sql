@@ -145,9 +145,9 @@ VALUES
   ('22222222-2222-2222-2222-222222222222', true, true, true);
 
 -- ----- company_notification_settings -----
-INSERT INTO company_notification_settings (company_member_id, scout_accepted, chat_message, line_enabled, in_app_enabled)
+INSERT INTO company_notification_settings (company_member_id, scout_accepted, chat_message, line_enabled)
 VALUES
-  ('33333333-3333-3333-3333-333333333333', true, true, true, true);
+  ('33333333-3333-3333-3333-333333333333', true, true, true);
 
 -- ----- events -----
 -- RLS 検証用の最小 2 件 ＋ 学生イベント画面デモ用の 16 件
