@@ -15,7 +15,7 @@ type NavItem = {
 const navItems: NavItem[] = [
   { href: "/company/dashboard", label: "ダッシュボード", icon: "dashboard" },
   { href: "/company/jobs", label: "求人管理", icon: "work" },
-  { href: "/company/students", label: "学生検索", icon: "person_search" },
+  { href: "/company/students", label: "スカウト送付", icon: "person_search" },
   { href: "/company/scouts", label: "スカウト履歴", icon: "history_edu" },
   { href: "/company/messages", label: "メッセージ", icon: "mail" },
   { href: "/company/events", label: "イベント管理", icon: "event" },
@@ -74,13 +74,16 @@ export function Sidebar({
       </div>
       <nav className="flex-1 space-y-1">
         {navItems.map((item) => {
+          const isScoutNew = pathname?.startsWith("/company/scouts/new") ?? false;
           const isNotificationsRoot = item.href === "/company/notifications";
           const isSettings = item.href === "/company/notifications/settings";
-          const isActive = isNotificationsRoot
-            ? pathname === "/company/notifications"
-            : isSettings
-              ? pathname?.startsWith("/company/notifications/settings") ?? false
-              : (pathname?.startsWith(item.href) ?? false);
+          const isActive = isScoutNew
+            ? item.href === "/company/students"
+            : isNotificationsRoot
+              ? pathname === "/company/notifications"
+              : isSettings
+                ? pathname?.startsWith("/company/notifications/settings") ?? false
+                : (pathname?.startsWith(item.href) ?? false);
 
           const showBadge = item.badge === "unread" && unreadCount > 0;
 

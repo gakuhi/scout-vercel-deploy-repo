@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Icon } from "@/components/ui/icon";
 import { Tag } from "@/components/ui/tag";
@@ -31,6 +32,7 @@ type StudentSearchViewProps = {
     formData: FormData,
   ) => Promise<SearchActionState>;
   savedSearches: SavedSearch[];
+  canScout?: boolean;
 };
 
 type ScoreFilterState = {
@@ -85,6 +87,7 @@ const initialState: SearchActionState = {};
 export function StudentSearchView({
   action,
   savedSearches,
+  canScout,
 }: StudentSearchViewProps) {
   const [state, formAction, isPending] = useActionState(action, initialState);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -94,8 +97,29 @@ export function StudentSearchView({
   // ドロワー
   const [drawerStudent, setDrawerStudent] = useState<ProfileMock | null>(null);
   const [drawerLoading, setDrawerLoading] = useState(false);
-
   const [drawerError, setDrawerError] = useState<string | null>(null);
+
+  // スカウト: 複数選択
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const router = useRouter();
+
+  function toggleStudentSelection(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (!state.results) return;
+    if (selectedIds.size === state.results.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(state.results.map((s) => s.id)));
+    }
+  }
 
   async function handleStudentClick(studentId: string) {
     setDrawerLoading(true);
@@ -450,16 +474,48 @@ export function StudentSearchView({
             </div>
           ) : state.results && state.results.length > 0 ? (
             <div>
-              <div className="flex items-center justify-between mb-6">
+              <div className="sticky top-4 z-20 bg-surface py-3 mb-6 flex items-center justify-between">
                 <p className="text-sm font-bold text-primary-container">
                   {state.results.length}件の学生が見つかりました
                 </p>
+                {canScout && (
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={toggleSelectAll}
+                      className="text-xs font-bold text-outline hover:text-primary-container transition-colors"
+                    >
+                      {selectedIds.size === state.results.length
+                        ? "選択解除"
+                        : "すべて選択"}
+                    </button>
+                    {selectedIds.size > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sessionStorage.setItem(
+                            "scout_student_ids",
+                            JSON.stringify(Array.from(selectedIds)),
+                          );
+                          router.push("/company/scouts/new");
+                        }}
+                        className="inline-flex items-center gap-1.5 signature-gradient text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg hover:opacity-90 transition-opacity"
+                      >
+                        <Icon name="send" className="text-sm" />
+                        {selectedIds.size}人にスカウト
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="space-y-4">
                 {state.results.map((student) => (
                   <StudentCard
                     key={student.id}
                     student={student}
+                    selected={selectedIds.has(student.id)}
+                    showCheckbox={!!canScout}
+                    onToggleSelect={() => toggleStudentSelection(student.id)}
                     onClick={() => handleStudentClick(student.id)}
                   />
                 ))}
@@ -559,17 +615,37 @@ function ScoreFilter({
 
 function StudentCard({
   student,
+  selected = false,
+  showCheckbox = false,
+  onToggleSelect,
   onClick,
 }: {
   student: StudentResult;
+  selected?: boolean;
+  showCheckbox?: boolean;
+  onToggleSelect?: () => void;
   onClick: () => void;
 }) {
   return (
     <div
-      className="bg-surface-container-lowest rounded-xl p-6 hover:shadow-md transition-shadow cursor-pointer"
+      className={`bg-surface-container-lowest rounded-xl p-6 hover:shadow-md transition-shadow cursor-pointer ${
+        selected ? "ring-2 ring-primary-container" : ""
+      }`}
       onClick={onClick}
     >
       <div className="flex items-start gap-4">
+        {showCheckbox && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggleSelect?.();
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="mt-1 w-5 h-5 rounded text-primary-container focus:ring-primary-container shrink-0 cursor-pointer"
+          />
+        )}
         <div className="w-12 h-12 rounded-full bg-surface-container-high grid place-items-center shrink-0">
           {student.profileImageUrl ? (
             <Image

@@ -27,6 +27,7 @@ export default async function StudentsPage() {
     <StudentSearchView
       action={searchStudentsAction}
       savedSearches={savedSearches}
+      canScout
     />
   );
 }
