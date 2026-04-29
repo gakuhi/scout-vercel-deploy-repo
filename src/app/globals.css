@@ -115,4 +115,12 @@
   .line-green:hover {
     background-color: #05b34c;
   }
+  /* スクロールは効かせつつ視覚的なスクロールバーだけ消す */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }

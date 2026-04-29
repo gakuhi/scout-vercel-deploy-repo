@@ -497,13 +497,15 @@ export type Database = {
           deleted_at: string | null
           description: string | null
           employment_type: string | null
+          hero_image_path: string | null
           id: string
           is_published: boolean | null
           job_category: string | null
+          job_type: string | null
           published_at: string | null
           requirements: string | null
           salary_range: string | null
-          target_graduation_year: number | null
+          target_graduation_years: number[] | null
           title: string
           updated_at: string | null
           work_location: string | null
@@ -516,13 +518,15 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           employment_type?: string | null
+          hero_image_path?: string | null
           id?: string
           is_published?: boolean | null
           job_category?: string | null
+          job_type?: string | null
           published_at?: string | null
           requirements?: string | null
           salary_range?: string | null
-          target_graduation_year?: number | null
+          target_graduation_years?: number[] | null
           title: string
           updated_at?: string | null
           work_location?: string | null
@@ -535,13 +539,15 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           employment_type?: string | null
+          hero_image_path?: string | null
           id?: string
           is_published?: boolean | null
           job_category?: string | null
+          job_type?: string | null
           published_at?: string | null
           requirements?: string | null
           salary_range?: string | null
-          target_graduation_year?: number | null
+          target_graduation_years?: number[] | null
           title?: string
           updated_at?: string | null
           work_location?: string | null
