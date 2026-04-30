@@ -231,16 +231,20 @@ otp_expiry = 3600
 
 # メールテンプレート（日本語）
 [auth.email.template.recovery]
-subject = "パスワードリセットのご案内 | Executive Monograph"
+subject = "パスワードリセットのご案内 | ScoutLink"
 content_path = "./supabase/templates/recovery.html"
 
 [auth.email.template.confirmation]
-subject = "メールアドレスの確認 | Executive Monograph"
+subject = "メールアドレスの確認 | ScoutLink"
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.invite]
-subject = "チームへの招待 | scoutlink"
+subject = "チームへの招待 | ScoutLink"
 content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.email_change]
+subject = "メールアドレス変更の確認 | ScoutLink"
+content_path = "./supabase/templates/email_change.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.

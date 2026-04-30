@@ -15,6 +15,7 @@ import type {
 
 type ProfileViewProps = {
   data: ProfileMock;
+  pendingEmail?: string | null;
 };
 
 function formatDate(value: string | null): string {
@@ -25,11 +26,13 @@ function formatDate(value: string | null): string {
     : d.toLocaleDateString("ja-JP", { year: "numeric", month: "short", day: "numeric" });
 }
 
-export function ProfileView({ data }: ProfileViewProps) {
+export function ProfileView({ data, pendingEmail }: ProfileViewProps) {
   const profile = data.integratedProfile;
 
   return (
     <div className="space-y-10">
+      {pendingEmail && <PendingEmailBanner pendingEmail={pendingEmail} />}
+
       <HeroSection data={data} />
 
       <div className="space-y-6">
@@ -45,6 +48,24 @@ export function ProfileView({ data }: ProfileViewProps) {
             syncedItems={data.syncedItems}
           />
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── メール変更確認待ちバナー (Issue #183) ─── */
+
+function PendingEmailBanner({ pendingEmail }: { pendingEmail: string }) {
+  return (
+    <div className="p-4 bg-tertiary-fixed/40 border border-tertiary-fixed rounded-lg text-on-tertiary-fixed text-sm font-medium flex items-start gap-2">
+      <Icon name="mark_email_unread" className="text-base shrink-0 mt-0.5" />
+      <div>
+        <p className="font-bold mb-0.5">メールアドレス変更を確認中</p>
+        <p className="text-xs leading-relaxed">
+          新しいメール
+          <span className="font-mono mx-1">{pendingEmail}</span>
+          に送信した確認リンクをクリックすると、メールアドレスが変更されます。確認が完了するまでは変更が反映されないのでご注意ください。
+        </p>
       </div>
     </div>
   );

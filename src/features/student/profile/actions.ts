@@ -272,7 +272,15 @@ async function getSyncedItems(
   return { es, researches, interviewSessions, sugoshu };
 }
 
-export async function getProfileViewData(): Promise<ProfileMock | null> {
+export type ProfileViewData = ProfileMock & {
+  /**
+   * Supabase Auth でメール変更フローが進行中の場合の新メール。null は通常状態。
+   * 表示画面の「確認待ち」バナーに使う (Issue #183)。
+   */
+  pendingEmail: string | null;
+};
+
+export async function getProfileViewData(): Promise<ProfileViewData | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -375,6 +383,7 @@ export async function getProfileViewData(): Promise<ProfileMock | null> {
     syncedItems: await getSyncedItems(supabase, linksRes.data ?? []),
     scoutSettings: [],
     verifiedAt: "",
+    pendingEmail: (user as { new_email?: string | null }).new_email ?? null,
   };
 }
 
@@ -469,6 +478,32 @@ async function persistStudentProfile(
     return {
       error: parsed.error.issues[0]?.message ?? "入力内容を確認してください",
     };
+  }
+
+  // Issue #183 対応: students.email を直接 UPDATE しても auth.users.email は
+  // 更新されないため、ログインメールと表示メールが乖離する問題があった。
+  // 入力 email が現在の auth.email と異なる場合は、Supabase の確認メールフローに
+  // 乗せる (新メール先と旧メール先の両方で確認 → auth.users.email が更新)。
+  // students.email はユーザーの「希望」を即時反映するため通常通り UPDATE する
+  // （確認待ちはバナーで明示）。
+  const newEmail = parsed.data.email;
+  const currentAuthEmail = user.email ?? "";
+  const emailChanged =
+    newEmail.toLowerCase() !== currentAuthEmail.toLowerCase();
+
+  if (emailChanged) {
+    const { error: authError } = await supabase.auth.updateUser({
+      email: newEmail,
+    });
+    if (authError) {
+      // eslint-disable-next-line no-console
+      console.error(`[${logContext}] auth.updateUser error:`, authError);
+      // rate-limit / invalid email format / 既存重複などをまとめて表示
+      return {
+        error:
+          "メールアドレス変更の確認メール送信に失敗しました。時間をおいて再度お試しください。",
+      };
+    }
   }
 
   // アップロード（新規ファイルがあった時のみ）

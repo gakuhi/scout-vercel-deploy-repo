@@ -67,6 +67,23 @@ function baseProfile(overrides: Partial<ProfileMock> = {}): ProfileMock {
   };
 }
 
+// ─── メール変更確認待ちバナー (Issue #183) ───
+
+describe("ProfileView メール変更確認バナー", () => {
+  it("pendingEmail が無いときはバナーを表示しない", () => {
+    render(<ProfileView data={baseProfile()} />);
+    expect(screen.queryByText("メールアドレス変更を確認中")).not.toBeInTheDocument();
+  });
+
+  it("pendingEmail があるときはバナーと新メールを表示する", () => {
+    render(
+      <ProfileView data={baseProfile()} pendingEmail="new@example.com" />,
+    );
+    expect(screen.getByText("メールアドレス変更を確認中")).toBeInTheDocument();
+    expect(screen.getByText("new@example.com")).toBeInTheDocument();
+  });
+});
+
 // ─── Hero / 基本情報 ───
 
 describe("ProfileView 基本情報", () => {

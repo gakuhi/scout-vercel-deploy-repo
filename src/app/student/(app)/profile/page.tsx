@@ -22,7 +22,7 @@ export default async function StudentProfilePage({
   return (
     <>
       {params.saved === "1" && <SaveToast />}
-      <ProfileView data={data} />
+      <ProfileView data={data} pendingEmail={data.pendingEmail} />
     </>
   );
 }
