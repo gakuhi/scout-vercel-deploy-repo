@@ -1,8 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import type { Database } from "@/shared/types/database";
-
-type ScoutStatus = Database["public"]["Enums"]["scout_status"];
+import { scoutStatusSchema } from "@/features/company/app/scouts/schemas";
+import type { ScoutStatus } from "@/features/company/app/scouts/schemas";
 
 export type ActiveStudent = {
   id: string;
@@ -94,8 +93,8 @@ export async function getDashboardData(
       .limit(5),
   ]);
 
-  const allStatuses = (scoutStatusesRes.data ?? []).map(
-    (r) => r.status as ScoutStatus | null,
+  const allStatuses = (scoutStatusesRes.data ?? []).map((r) =>
+    r.status == null ? null : scoutStatusSchema.catch("sent").parse(r.status),
   );
   const totalSent = allStatuses.length;
   const acceptedCount = allStatuses.filter((s) => s === "accepted").length;

@@ -89,6 +89,18 @@
   }
 }
 
+@keyframes highlight-fade {
+  0%, 30%, 60% {
+    background-color: rgba(0, 52, 102, 0.2);
+  }
+  15%, 45%, 75% {
+    background-color: transparent;
+  }
+  100% {
+    background-color: rgba(0, 52, 102, 0.05);
+  }
+}
+
 @keyframes slide-in-right {
   from {
     transform: translateX(100%);
@@ -99,6 +111,9 @@
 }
 
 @layer utilities {
+  .animate-highlight-fade {
+    animation: highlight-fade 5s ease-out forwards;
+  }
   .animate-slide-in-right {
     animation: slide-in-right 0.25s ease-out;
   }

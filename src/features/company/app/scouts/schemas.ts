@@ -1,5 +1,35 @@
 import { z } from "zod";
 
+// --- スカウト一覧表示用の型 ---
+
+// scouts.status は DB 側で text。値の妥当性はアプリ層 (zod) で担保する。
+export const scoutStatusSchema = z.enum([
+  "sent",
+  "read",
+  "accepted",
+  "declined",
+  "expired",
+]);
+export type ScoutStatus = z.infer<typeof scoutStatusSchema>;
+
+export type ScoutListItem = {
+  id: string;
+  subject: string;
+  message: string;
+  status: ScoutStatus;
+  sentAt: string | null;
+  readAt: string | null;
+  respondedAt: string | null;
+  expiresAt: string | null;
+  studentId: string;
+  studentUniversity: string | null;
+  studentFaculty: string | null;
+  studentName: string | null;
+  jobPostingTitle: string | null;
+};
+
+// --- スカウト送信用のスキーマ ---
+
 export const scoutMessageSchema = z.object({
   subject: z.string().trim().min(1, "件名を入力してください").max(200),
   message: z

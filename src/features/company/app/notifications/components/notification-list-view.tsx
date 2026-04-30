@@ -130,10 +130,13 @@ export function NotificationListView({
   );
 }
 
-function getNotificationLink(notification: NotificationListItem): string | null {
+export function getNotificationLink(notification: NotificationListItem): string | null {
   if (!notification.referenceType || !notification.referenceId) return null;
   if (notification.referenceType === "scouts") {
-    if (notification.type === "chat_new_message") {
+    if (
+      notification.type === "chat_new_message" ||
+      notification.type === "scout_accepted"
+    ) {
       return `/company/messages/${notification.referenceId}`;
     }
     return `/company/scouts?highlight=${notification.referenceId}`;
