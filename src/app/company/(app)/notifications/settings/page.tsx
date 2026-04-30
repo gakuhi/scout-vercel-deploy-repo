@@ -8,7 +8,7 @@ import {
 } from "@/features/company/app/notifications/queries";
 
 export const metadata = {
-  title: "通知設定 | Executive Monograph",
+  title: "通知設定 | ScoutLink",
 };
 
 export default async function NotificationSettingsPage() {

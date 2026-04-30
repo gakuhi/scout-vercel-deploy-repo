@@ -5,7 +5,7 @@ import { createJobAction } from "@/features/company/app/jobs/actions/save";
 import { getCompanyMembership } from "@/features/company/app/jobs/queries";
 
 export const metadata = {
-  title: "新規求人作成 | Executive Monograph",
+  title: "新規求人作成 | ScoutLink",
 };
 
 export default async function NewJobPage() {

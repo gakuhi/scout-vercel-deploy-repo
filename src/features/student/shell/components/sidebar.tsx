@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -46,10 +47,17 @@ export function Sidebar({
         <div className="mb-10 px-2">
           <Link
             href="/student/dashboard"
-            className="text-xl font-extrabold text-primary-container"
+            aria-label="ScoutLink"
             onClick={onClose}
           >
-            ScoutLink
+            <Image
+              src="/logos/black.png"
+              alt="ScoutLink"
+              width={1466}
+              height={243}
+              priority
+              className="h-7 w-auto"
+            />
           </Link>
         </div>
 

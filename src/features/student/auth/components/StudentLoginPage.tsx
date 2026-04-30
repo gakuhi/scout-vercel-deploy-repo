@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import Link from "next/link";
 import { signInWithLine } from "../actions/login";
@@ -24,10 +25,15 @@ export function StudentLoginPage({ error }: { error?: string }) {
       <main className="z-10 w-full max-w-md px-6 flex flex-col justify-center min-h-screen fixed inset-0 m-auto h-fit">
         <div className="bg-white shadow-2xl rounded-xl overflow-hidden p-10 md:p-12 border border-outline-variant/20">
           {/* Branding */}
-          <div className="mb-12 text-center">
-            <h1 className="text-4xl font-extrabold tracking-tight text-primary mb-3">
-              SCOUT
-            </h1>
+          <div className="mb-12 flex flex-col items-center">
+            <Image
+              src="/logos/black.png"
+              alt="ScoutLink"
+              width={1466}
+              height={243}
+              priority
+              className="h-10 w-auto mb-3"
+            />
             <p className="text-on-surface-variant text-sm font-medium tracking-wide">
               プロフェッショナルな未来への扉
             </p>

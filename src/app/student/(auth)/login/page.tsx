@@ -1,7 +1,7 @@
 import { StudentLoginPage } from "@/features/student/auth";
 
 export const metadata = {
-  title: "ログイン | Scout",
+  title: "ログイン | ScoutLink",
 };
 
 export default async function Login(props: {

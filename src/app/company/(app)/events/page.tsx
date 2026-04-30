@@ -7,7 +7,7 @@ import {
 } from "@/features/company/app/events/queries";
 
 export const metadata = {
-  title: "イベント管理 | Executive Monograph",
+  title: "イベント管理 | ScoutLink",
 };
 
 export default async function EventsPage() {

@@ -4,7 +4,7 @@ import { DashboardView } from "@/features/company/app/dashboard/components/dashb
 import { getDashboardData } from "@/features/company/app/dashboard/queries";
 
 export const metadata = {
-  title: "採用ダッシュボード | Executive Monograph",
+  title: "採用ダッシュボード | ScoutLink",
 };
 
 export default async function DashboardPage() {

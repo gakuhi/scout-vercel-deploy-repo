@@ -8,7 +8,7 @@ import {
 } from "@/features/company/app/messages/queries";
 
 export const metadata = {
-  title: "チャット | Executive Monograph",
+  title: "チャット | ScoutLink",
 };
 
 export default async function ChatPage({

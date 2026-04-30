@@ -10,8 +10,11 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Scout - スカウトサービス",
+  title: "ScoutLink",
   description: "企業と学生をつなぐスカウトプラットフォーム",
+  icons: {
+    icon: "/icons/favicon.png",
+  },
 };
 
 export default function RootLayout({

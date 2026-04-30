@@ -9,7 +9,7 @@ import {
 } from "@/features/company/app/scouts/queries";
 
 export const metadata = {
-  title: "スカウト送信 | Executive Monograph",
+  title: "スカウト送信 | ScoutLink",
 };
 
 export default async function NewScoutPage() {

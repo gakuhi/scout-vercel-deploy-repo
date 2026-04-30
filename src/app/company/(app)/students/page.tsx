@@ -8,7 +8,7 @@ import {
 } from "@/features/company/app/students/queries";
 
 export const metadata = {
-  title: "学生検索 | Executive Monograph",
+  title: "学生検索 | ScoutLink",
 };
 
 export default async function StudentsPage() {

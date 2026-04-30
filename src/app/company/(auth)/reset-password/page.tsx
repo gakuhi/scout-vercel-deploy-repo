@@ -1,7 +1,7 @@
 import { ResetPasswordForm } from "@/features/company/auth/components/reset-password-form";
 
 export const metadata = {
-  title: "新しいパスワードを設定 | Executive Monograph",
+  title: "新しいパスワードを設定 | ScoutLink",
 };
 
 export default function ResetPasswordPage() {

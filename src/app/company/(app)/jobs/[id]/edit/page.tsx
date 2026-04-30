@@ -8,7 +8,7 @@ import {
 } from "@/features/company/app/jobs/queries";
 
 export const metadata = {
-  title: "求人編集 | Executive Monograph",
+  title: "求人編集 | ScoutLink",
 };
 
 export default async function EditJobPage({

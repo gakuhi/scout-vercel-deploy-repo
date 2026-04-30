@@ -1,7 +1,7 @@
 import { ForgotPasswordForm } from "@/features/company/auth/components/forgot-password-form";
 
 export const metadata = {
-  title: "パスワードをリセット | Executive Monograph",
+  title: "パスワードをリセット | ScoutLink",
 };
 
 export default function ForgotPasswordPage() {

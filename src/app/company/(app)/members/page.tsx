@@ -8,7 +8,7 @@ import {
 } from "@/features/company/app/members/queries";
 
 export const metadata = {
-  title: "メンバー管理 | Executive Monograph",
+  title: "メンバー管理 | ScoutLink",
 };
 
 export default async function MembersPage() {

@@ -8,7 +8,7 @@ import {
 } from "@/features/company/app/scouts/queries";
 
 export const metadata = {
-  title: "スカウト履歴 | Executive Monograph",
+  title: "スカウト履歴 | ScoutLink",
 };
 
 export default async function ScoutsPage() {

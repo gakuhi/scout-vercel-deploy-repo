@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/ui/icon";
@@ -65,12 +66,16 @@ export function Sidebar({
   return (
     <aside className="bg-primary-container text-white h-screen w-64 fixed left-0 top-0 shadow-2xl flex flex-col py-6 z-50">
       <div className="px-6 mb-8">
-        <h1 className="text-xl font-extrabold text-white tracking-tighter">
-          Recruitment Authority
-        </h1>
-        <p className="text-xs text-primary-fixed/50 uppercase tracking-[0.2em] mt-1">
-          Executive Portal
-        </p>
+        <Link href="/company/dashboard" aria-label="ScoutLink">
+          <Image
+            src="/logos/all_white.png"
+            alt="ScoutLink"
+            width={1456}
+            height={243}
+            priority
+            className="h-7 w-auto"
+          />
+        </Link>
       </div>
       <nav className="flex-1 space-y-1">
         {navItems.map((item) => {

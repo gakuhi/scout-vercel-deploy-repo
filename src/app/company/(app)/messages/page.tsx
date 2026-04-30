@@ -7,7 +7,7 @@ import {
 } from "@/features/company/app/messages/queries";
 
 export const metadata = {
-  title: "メッセージ | Executive Monograph",
+  title: "メッセージ | ScoutLink",
 };
 
 export default async function MessagesPage() {

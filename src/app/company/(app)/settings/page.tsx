@@ -8,7 +8,7 @@ import {
 } from "@/features/company/app/settings/queries";
 
 export const metadata = {
-  title: "企業プロフィール | Executive Monograph",
+  title: "企業プロフィール | ScoutLink",
 };
 
 export default async function CompanySettingsPage() {

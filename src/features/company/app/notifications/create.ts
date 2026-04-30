@@ -124,7 +124,7 @@ async function sendNotificationEmail({
     // subject はメールヘッダーに展開されるため、CR/LF を除去してインジェクションを防ぐ
     const safeSubject = `【${typeLabel}】${title}`.replace(/[\r\n]+/g, " ");
     const { error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM ?? "Executive Monograph <noreply@resend.dev>",
+      from: process.env.EMAIL_FROM ?? "ScoutLink <noreply@resend.dev>",
       to,
       subject: safeSubject,
       html: buildNotificationHtml(title, body, typeLabel),
@@ -175,7 +175,7 @@ function buildNotificationHtml(
     ${safeBody ? `<p style="font-size: 14px; color: #43474f; line-height: 1.8;">${safeBody}</p>` : ""}
     <hr style="border: none; border-top: 1px solid #eceef0; margin: 32px 0 16px;">
     <p style="font-size: 11px; color: #c3c6d1; text-align: center;">
-      Executive Monograph
+      ScoutLink
     </p>
   </div>
 </body>

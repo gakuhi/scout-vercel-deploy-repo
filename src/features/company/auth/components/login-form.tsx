@@ -32,14 +32,6 @@ export function LoginForm() {
 
   return (
     <div className="w-full max-w-md">
-      <header className="mb-12">
-        <span className="text-[10px] font-bold text-on-tertiary-fixed-variant uppercase tracking-[0.2em] mb-3 block">
-          Portal Access
-        </span>
-        <h3 className="text-on-surface text-3xl font-extrabold tracking-tight mb-2">
-          サインイン
-        </h3>
-      </header>
       {urlError && (
         <p className="text-xs font-semibold text-error bg-error-container p-3 rounded-lg mb-6" role="alert">
           {urlError}
@@ -105,13 +97,13 @@ export function LoginForm() {
           className="w-full mt-4"
           disabled={isPending}
         >
-          <span>{isPending ? "認証中..." : "ポータルにログイン"}</span>
+          <span>{isPending ? "認証中..." : "ログイン"}</span>
           {!isPending && <Icon name="arrow_forward" className="text-lg" />}
         </Button>
       </form>
       <footer className="mt-12 flex justify-between items-center">
         <span className="text-[9px] font-bold text-outline-variant uppercase tracking-widest">
-          © 2026 Executive Monograph
+          © 2026 ScoutLink
         </span>
         <div className="flex gap-4">
           <Link

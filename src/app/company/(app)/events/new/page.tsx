@@ -5,7 +5,7 @@ import { createEventAction } from "@/features/company/app/events/actions/save";
 import { getCompanyMembership } from "@/features/company/app/events/queries";
 
 export const metadata = {
-  title: "新規イベント作成 | Executive Monograph",
+  title: "新規イベント作成 | ScoutLink",
 };
 
 export default async function NewEventPage() {
