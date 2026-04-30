@@ -614,12 +614,13 @@ describe("runBatch", () => {
       }),
     } as unknown as import("@supabase/supabase-js").SupabaseClient;
 
-    const stats = await runBatch({ checker, supabase });
+    const stats = await runBatch({ checker, supabase, sleepMs: 0 });
 
     expect(stats.processed).toBe(2); // s-updated-1, s-updated-2
     expect(stats.skippedNoData).toBe(1); // s-no-data
     expect(stats.skippedNoUpdate).toBe(1); // s-no-update
     expect(stats.errors).toBe(0);
+    expect(stats.failedStudentIds).toEqual([]);
   });
 
   it("LLM 例外は errors にカウントし他の学生は処理続行", async () => {
@@ -659,15 +660,101 @@ describe("runBatch", () => {
       student_integrated_profiles: { data: null },
     }) as unknown as import("@supabase/supabase-js").SupabaseClient;
 
-    const stats = await runBatch({ checker, supabase });
+    const stats = await runBatch({ checker, supabase, sleepMs: 0 });
 
     expect(stats.errors).toBe(1);
     expect(stats.processed).toBe(1);
+    // 失敗した学生 ID は再実行用に構造化して返す
+    expect(stats.failedStudentIds).toEqual(["s1"]);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringMatching(/profile sync failed for student=s1/),
       expect.any(Error),
     );
 
     consoleErrorSpy.mockRestore();
+  });
+
+  it("リクエスト間のスリープを挟む（最終要素の後ろは挟まない）", async () => {
+    const checker: UpdateChecker = {
+      check: vi.fn(async () => true),
+      hasUpdate: vi.fn(async () => true),
+    };
+
+    const { getAnthropic } = await import("@/lib/anthropic/client");
+    vi.mocked(getAnthropic).mockReturnValue({
+      messages: {
+        create: vi.fn().mockResolvedValue(mockAnthropicText(validProfileJson)),
+      },
+    } as never);
+
+    const supabase = makeMockSupabase({
+      students: { data: [{ id: "s1" }, { id: "s2" }, { id: "s3" }] },
+      student_product_links: {
+        data: [{ product: "smartes", external_user_id: "ext" }],
+      },
+      synced_smartes_motivations: {
+        data: [{ generated_text: "テスト", regenerated_count: 0 }],
+      },
+      synced_smartes_gakuchika: {
+        data: [{ generated_text: "テスト", regenerated_count: 0 }],
+      },
+      synced_smartes_generated_es: {
+        data: [{ generated_text: "テスト", regenerated_count: 0 }],
+      },
+      student_integrated_profiles: { data: null },
+    }) as unknown as import("@supabase/supabase-js").SupabaseClient;
+
+    // setTimeout を使うと実時間が掛かるので、setTimeout 自体を spyon して呼ばれた ms 値を検証
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+    const stats = await runBatch({ checker, supabase, sleepMs: 250 });
+
+    expect(stats.processed).toBe(3);
+    // 学生間に 2 回スリープが入る（s1->s2, s2->s3）。最終 s3 の後ろは挟まない。
+    const sleepCalls = setTimeoutSpy.mock.calls.filter((c) => c[1] === 250);
+    expect(sleepCalls).toHaveLength(2);
+
+    setTimeoutSpy.mockRestore();
+  });
+
+  it("sleepMs=0 のときはスリープを挟まない", async () => {
+    const checker: UpdateChecker = {
+      check: vi.fn(async () => true),
+      hasUpdate: vi.fn(async () => true),
+    };
+
+    const { getAnthropic } = await import("@/lib/anthropic/client");
+    vi.mocked(getAnthropic).mockReturnValue({
+      messages: {
+        create: vi.fn().mockResolvedValue(mockAnthropicText(validProfileJson)),
+      },
+    } as never);
+
+    const supabase = makeMockSupabase({
+      students: { data: [{ id: "s1" }, { id: "s2" }] },
+      student_product_links: {
+        data: [{ product: "smartes", external_user_id: "ext" }],
+      },
+      synced_smartes_motivations: {
+        data: [{ generated_text: "テスト", regenerated_count: 0 }],
+      },
+      synced_smartes_gakuchika: {
+        data: [{ generated_text: "テスト", regenerated_count: 0 }],
+      },
+      synced_smartes_generated_es: {
+        data: [{ generated_text: "テスト", regenerated_count: 0 }],
+      },
+      student_integrated_profiles: { data: null },
+    }) as unknown as import("@supabase/supabase-js").SupabaseClient;
+
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+    await runBatch({ checker, supabase, sleepMs: 0 });
+
+    // ms=0 の setTimeout 呼び出しは無いはず
+    const zeroSleeps = setTimeoutSpy.mock.calls.filter((c) => c[1] === 0);
+    expect(zeroSleeps).toHaveLength(0);
+
+    setTimeoutSpy.mockRestore();
   });
 });

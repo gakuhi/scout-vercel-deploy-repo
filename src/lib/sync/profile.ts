@@ -861,21 +861,55 @@ export async function updateProfile(
 
 // --- バッチ実行 ---
 
+// 連続呼び出しでレート制限に引っかかりにくくするための、リクエスト間の最小待ち時間。
+// Claude API の RPM 上限はティアによって変動するので、保守的な値を採用しつつ
+// 環境変数で上書きできるようにしておく。0 を指定すれば無効化できる。
+const DEFAULT_BATCH_REQUEST_INTERVAL_MS = 500;
+
+function resolveBatchRequestIntervalMs(): number {
+  const raw = process.env.PROFILE_BATCH_REQUEST_INTERVAL_MS;
+  if (!raw) return DEFAULT_BATCH_REQUEST_INTERVAL_MS;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) return DEFAULT_BATCH_REQUEST_INTERVAL_MS;
+  return value;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export type BatchStats = {
   processed: number;
   skippedNoUpdate: number;
   skippedNoData: number;
   errors: number;
+  // 失敗した学生 ID。再実行用にログだけでなく構造化して返す
+  // （/api/sync/profile 呼び出し元が ID を絞って再走できるようにするため）。
+  failedStudentIds: string[];
 };
 
-export async function runBatch(opts: UpdateProfileOptions = {}): Promise<BatchStats> {
+export type RunBatchOptions = UpdateProfileOptions & {
+  // テスト用フック。本番では未指定のままで OK。
+  sleepMs?: number;
+};
+
+export async function runBatch(opts: RunBatchOptions = {}): Promise<BatchStats> {
   const supabase = opts.supabase ?? createAdminClient();
   const checker = opts.checker ?? new DbUpdateChecker(supabase);
+  const intervalMs = opts.sleepMs ?? resolveBatchRequestIntervalMs();
 
   const { data: students } = await supabase.from("students").select("id");
-  const stats: BatchStats = { processed: 0, skippedNoUpdate: 0, skippedNoData: 0, errors: 0 };
+  const stats: BatchStats = {
+    processed: 0,
+    skippedNoUpdate: 0,
+    skippedNoData: 0,
+    errors: 0,
+    failedStudentIds: [],
+  };
 
-  for (const student of (students ?? []) as { id: string }[]) {
+  const list = (students ?? []) as { id: string }[];
+  for (let i = 0; i < list.length; i++) {
+    const student = list[i];
     try {
       const result = await updateProfile(student.id, { checker, supabase });
       if (result.status === "updated") stats.processed++;
@@ -885,6 +919,11 @@ export async function runBatch(opts: UpdateProfileOptions = {}): Promise<BatchSt
       // cron 経由で全件失敗しても調査できるよう、最低限の情報を stderr に残す
       console.error(`[runBatch] profile sync failed for student=${student.id}:`, err);
       stats.errors++;
+      stats.failedStudentIds.push(student.id);
+    }
+    // 最終要素の後ろではスリープしない（戻り値の遅延を避ける）
+    if (intervalMs > 0 && i < list.length - 1) {
+      await sleep(intervalMs);
     }
   }
   return stats;
