@@ -548,6 +548,7 @@ export function StudentSearchView({
         student={drawerStudent}
         isLoading={drawerLoading}
         onClose={handleDrawerClose}
+        hidePersonalInfo
       />
     </div>
   );

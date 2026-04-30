@@ -9,12 +9,14 @@ type StudentDetailDrawerProps = {
   student: ProfileMock | null;
   isLoading: boolean;
   onClose: () => void;
+  hidePersonalInfo?: boolean;
 };
 
 export function StudentDetailDrawer({
   student,
   isLoading,
   onClose,
+  hidePersonalInfo = false,
 }: StudentDetailDrawerProps) {
   const shouldShow = isLoading || student !== null;
   const [visible, setVisible] = useState(false);
@@ -95,7 +97,7 @@ export function StudentDetailDrawer({
               />
             </div>
           ) : student ? (
-            <StudentProfile data={student} hidePersonalInfo />
+            <StudentProfile data={student} hidePersonalInfo={hidePersonalInfo} />
           ) : null}
         </div>
       </div>

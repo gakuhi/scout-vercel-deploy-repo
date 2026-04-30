@@ -210,7 +210,9 @@ function toActivityLevel(score: number | null): ActivityLevel | null {
 
 export async function getStudentDetail(
   studentId: string,
+  options?: { includePersonalInfo?: boolean },
 ): Promise<ProfileMock | null> {
+  const includePersonalInfo = options?.includePersonalInfo ?? false;
   const supabase = await createClient();
 
   const { data: student, error: sErr } = await supabase
@@ -251,6 +253,17 @@ export async function getStudentDetail(
       mbtiTypeName = mbti.name_ja;
     }
   }
+
+  const fullName = includePersonalInfo
+    ? [student.last_name, student.first_name].filter(Boolean).join(" ") ||
+      "名前未設定"
+    : "";
+
+  const initials = includePersonalInfo
+    ? [student.last_name?.[0], student.first_name?.[0]]
+        .filter(Boolean)
+        .join("") || "?"
+    : "";
 
   const integratedProfile: IntegratedProfile = {
     summary: profile?.summary ?? "",
@@ -317,18 +330,18 @@ export async function getStudentDetail(
       }).format(new Date(student.data_consent_granted_at))
     : "";
 
-  // スカウト承諾前は名前と連絡先を非表示にする（描画側で抑制）
+  // includePersonalInfo=false の場合はスカウト承諾前として名前と連絡先を空で返す
   return {
-    name: "",
+    name: fullName,
     university: student.university ?? "",
     faculty: student.faculty ?? "",
     department: student.department ?? "",
     prefecture: student.prefecture ?? "",
     graduationYear: student.graduation_year,
-    avatarInitials: "",
+    avatarInitials: initials,
     profileImageUrl: await resolveProfileImageUrl(supabase, student.profile_image_url),
-    email: "",
-    phone: "",
+    email: includePersonalInfo ? student.email : "",
+    phone: includePersonalInfo ? (student.phone ?? "") : "",
     bio: student.bio ?? "",
     isProfilePublic: student.is_profile_public ?? false,
     mbtiTypeCode,

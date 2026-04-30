@@ -151,6 +151,7 @@ const UUID_REGEX =
 
 export async function getStudentDetailAction(
   studentId: string,
+  options?: { includePersonalInfo?: boolean },
 ): Promise<{ error?: string; data?: ProfileMock }> {
   if (!UUID_REGEX.test(studentId)) return { error: "無効なIDです" };
   const supabase = await createClient();
@@ -162,7 +163,7 @@ export async function getStudentDetailAction(
   const membership = await getCompanyMembership(user.id);
   if (!membership) return { error: "企業情報が見つかりません" };
 
-  const detail = await getStudentDetail(studentId);
+  const detail = await getStudentDetail(studentId, options);
   if (!detail) return { error: "学生が見つかりません" };
 
   return { data: detail };
