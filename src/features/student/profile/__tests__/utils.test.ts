@@ -4,6 +4,7 @@ import {
   buildInitials,
   calcAge,
   checkboxToBool,
+  computeProfileCompletion,
   isProfileComplete,
   type ProfileCompleteFields,
 } from "../utils";
@@ -183,5 +184,55 @@ describe("isProfileComplete", () => {
       const broken = { ...completeStudent(), [key]: null } as ProfileCompleteFields;
       expect(isProfileComplete(broken), `${key} が null で false になること`).toBe(false);
     }
+  });
+});
+
+describe("computeProfileCompletion", () => {
+  const TOTAL_FIELDS = 17;
+
+  it("全項目が埋まっていれば null（バナー非表示）", () => {
+    expect(computeProfileCompletion(completeStudent())).toBeNull();
+  });
+
+  it("null の student は 0% を返す", () => {
+    const result = computeProfileCompletion(null);
+    expect(result).not.toBeNull();
+    expect(result?.percent).toBe(0);
+    expect(result?.missingFields).toHaveLength(3);
+  });
+
+  it("undefined の student も 0% を返す", () => {
+    expect(computeProfileCompletion(undefined)?.percent).toBe(0);
+  });
+
+  it("1 項目欠けたときは 16/17 を四捨五入した % と未入力ラベルを返す", () => {
+    const broken: ProfileCompleteFields = {
+      ...completeStudent(),
+      birthdate: null,
+    };
+    const result = computeProfileCompletion(broken);
+    expect(result?.percent).toBe(Math.round((16 / TOTAL_FIELDS) * 100));
+    expect(result?.missingFields).toEqual(["生年月日"]);
+  });
+
+  it("複数欠けても missingFields は先頭 3 件まで（フィールド定義順）", () => {
+    const broken: ProfileCompleteFields = {
+      ...completeStudent(),
+      last_name: null,
+      first_name: null,
+      last_name_kana: null,
+      first_name_kana: null,
+      email: null,
+    };
+    const result = computeProfileCompletion(broken);
+    expect(result?.missingFields).toEqual(["姓", "名", "姓（カナ）"]);
+  });
+
+  it("空文字も未入力扱い", () => {
+    const broken: ProfileCompleteFields = {
+      ...completeStudent(),
+      university: "",
+    };
+    expect(computeProfileCompletion(broken)?.missingFields).toContain("大学");
   });
 });

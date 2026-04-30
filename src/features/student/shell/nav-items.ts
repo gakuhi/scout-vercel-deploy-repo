@@ -15,7 +15,7 @@ type StudentNavItem = {
 };
 
 export const STUDENT_NAV_ITEMS: StudentNavItem[] = [
-  { key: "home", label: "ホーム", href: "/student", icon: "home" },
+  { key: "home", label: "ホーム", href: "/student/dashboard", icon: "home" },
   {
     key: "scout",
     label: "スカウト",

@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/ui/icon";
@@ -44,7 +45,7 @@ export function Sidebar({
       >
         <div className="mb-10 px-2">
           <Link
-            href="/student"
+            href="/student/dashboard"
             className="text-xl font-extrabold text-primary-container"
             onClick={onClose}
           >
@@ -76,7 +77,12 @@ export function Sidebar({
 
         <div className="border-t border-surface-container pt-6 space-y-2">
           <div className="px-2 mb-2">
-            <NotificationBell />
+            {/* NotificationBell は内部で useSearchParams を呼ぶため、サブツリーが
+                CSR バイルアウトしないよう Suspense で隔離する。fallback は静的
+                ベルアイコン。 */}
+            <Suspense fallback={<NotificationBellFallback />}>
+              <NotificationBell />
+            </Suspense>
           </div>
           {user && (
             <div className="flex items-center gap-3 px-4 mb-4">
@@ -111,5 +117,17 @@ export function Sidebar({
         </div>
       </nav>
     </>
+  );
+}
+
+function NotificationBellFallback() {
+  return (
+    <div
+      aria-hidden
+      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface-variant font-medium"
+    >
+      <Icon name="notifications" />
+      <span>通知</span>
+    </div>
   );
 }

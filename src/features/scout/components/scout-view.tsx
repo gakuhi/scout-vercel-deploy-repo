@@ -22,7 +22,7 @@ import {
   type TagStyle,
 } from "@/features/scout/schema";
 
-type FilterKey = "all" | "unread" | "read" | "accepted" | "favorite";
+export type FilterKey = "all" | "unread" | "read" | "accepted" | "favorite";
 type SortKey = "newest" | "oldest" | "status";
 
 const FILTERS: ReadonlyArray<{ key: FilterKey; label: string; icon?: string }> =
@@ -45,14 +45,15 @@ const STATUS_ORDER: Record<ScoutDisplayStatus, number> = {
 
 type Props = {
   scouts: ScoutItem[];
+  initialFilter?: FilterKey;
 };
 
-export function ScoutView({ scouts }: Props) {
+export function ScoutView({ scouts, initialFilter = "all" }: Props) {
   const [items, setItems] = useState(scouts);
   // ナビゲーションから遷移してきた直後は一覧画面を見せたいので、初期選択は
   // null。ユーザーがリストから明示的に選んだら詳細を表示する。
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<FilterKey>("all");
+  const [filter, setFilter] = useState<FilterKey>(initialFilter);
   const [sort, setSort] = useState<SortKey>("newest");
   // 未読フィルタで選択した瞬間、既読化で即リストから消えて現在地を
   // 見失う不具合を避けるため、「選択時点で未読だったスカウト」を

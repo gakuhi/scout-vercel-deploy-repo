@@ -123,6 +123,32 @@
   .signature-gradient-soft {
     background: linear-gradient(135deg, #003466 0%, #1a4b84 100%);
   }
+  .hero-metallic-base {
+    background:
+      linear-gradient(135deg,
+        #050c1a 0%,
+        #0f2242 22%,
+        #1f4572 42%,
+        #6c88b0 52%,
+        #1f4572 62%,
+        #0f2242 80%,
+        #050c1a 100%);
+  }
+  .hero-metallic-sheen {
+    background:
+      radial-gradient(ellipse 60% 40% at 30% 20%, rgba(255, 255, 255, 0.18), transparent 70%),
+      radial-gradient(ellipse 50% 60% at 80% 80%, rgba(120, 160, 210, 0.22), transparent 70%),
+      linear-gradient(135deg, transparent 45%, rgba(255, 255, 255, 0.08) 50%, transparent 55%);
+  }
+  .hero-slashes {
+    background-image: repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.08) 0,
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 22px
+    );
+  }
   .soft-border {
     border: 1px solid rgba(0, 0, 0, 0.05);
   }

@@ -1,17 +1,32 @@
 import { redirect } from "next/navigation";
 import { getScoutInbox } from "@/features/scout/actions";
-import { ScoutView } from "@/features/scout/components/scout-view";
+import {
+  ScoutView,
+  type FilterKey,
+} from "@/features/scout/components/scout-view";
 import { MOCK_SCOUTS } from "@/features/scout/mock";
 
 export const dynamic = "force-dynamic";
 
+const VALID_FILTERS: ReadonlySet<FilterKey> = new Set([
+  "all",
+  "unread",
+  "read",
+  "accepted",
+  "favorite",
+]);
+
 export default async function StudentScoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mock?: string }>;
+  searchParams: Promise<{ mock?: string; filter?: string }>;
 }) {
   const params = await searchParams;
   const useMock = params.mock === "1";
+  const initialFilter: FilterKey =
+    params.filter && VALID_FILTERS.has(params.filter as FilterKey)
+      ? (params.filter as FilterKey)
+      : "all";
 
   const real = useMock ? null : await getScoutInbox();
 
@@ -26,5 +41,5 @@ export default async function StudentScoutPage({
 
   const scouts = shouldFallback ? MOCK_SCOUTS : (real ?? []);
 
-  return <ScoutView scouts={scouts} />;
+  return <ScoutView scouts={scouts} initialFilter={initialFilter} />;
 }

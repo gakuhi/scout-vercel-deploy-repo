@@ -1,4 +1,4 @@
-import { getProfile } from "@/features/student/profile/actions";
+import { getProfile } from "@/features/student/profile/queries";
 import { StudentAppShell } from "@/features/student/shell/components/student-app-shell";
 import {
   buildFullName,
@@ -11,7 +11,8 @@ export default async function StudentAppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const profile = await getProfile();
+  // queries.ts 経由で React.cache 版を呼ぶことで dashboard page と DB アクセスを 1 回に集約
+  const profile = await getProfile().catch(() => null);
   const user: SidebarUser | null = profile
     ? {
         imageUrl: profile.profile_image_url,

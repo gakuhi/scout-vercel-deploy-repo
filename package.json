@@ -24,6 +24,7 @@
     "@sentry/nextjs": "^10.49.0",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.101.1",
+    "fast-xml-parser": "^5.7.2",
     "jose": "^6.2.2",
     "next": "16.2.4",
     "postgres": "^3.4.9",
