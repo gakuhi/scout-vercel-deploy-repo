@@ -84,7 +84,10 @@ async function handleDirectLogin(
   // 既存ユーザーを検索（LINE UID → メアド の順）
   const existing = await findExistingStudent(admin, lineUser.sub, email);
 
+  let studentId: string;
+
   if (existing) {
+    studentId = existing.id;
     // LINE 情報を更新
     await admin.auth.admin.updateUserById(existing.id, {
       user_metadata: {
@@ -124,6 +127,8 @@ async function handleDirectLogin(
       );
     }
 
+    studentId = newUser.user.id;
+
     const { error: insertError } = await admin.from("students").insert({
       id: newUser.user.id,
       email,
@@ -140,6 +145,20 @@ async function handleDirectLogin(
       );
     }
   }
+
+  // line_friendships に楽観的 UPSERT（bot_prompt=aggressive で friend-add がほぼ確実に走るため）。
+  // webhook 先着で students 突合に失敗するケース（callback 完了前に follow webhook が到着）を
+  // この行で救済する。実際の friend 状態は LINE Messaging API webhook が follow/unfollow で
+  // 後追い更新するため、ここでの is_friend=true は初期値であり最終的な真実ではない。
+  await admin.from("line_friendships").upsert(
+    {
+      student_id: studentId,
+      line_uid: lineUser.sub,
+      is_friend: true,
+      followed_at: new Date().toISOString(),
+    },
+    { onConflict: "student_id" },
+  );
 
   // magic link でセッション確立
   const { data: linkData, error: linkError } =
@@ -307,7 +326,10 @@ async function handleProductRegistration(
       .eq("id", student.id)
       .is("data_consent_granted_at", null);
 
-    // line_friendships にレコード作成
+    // line_friendships に楽観的 UPSERT（bot_prompt=aggressive で friend-add がほぼ確実に走るため）。
+    // webhook 先着で students 突合に失敗するケース（callback 完了前に follow webhook が到着）を
+    // この行で救済する。実際の friend 状態は LINE Messaging API webhook が follow/unfollow で
+    // 後追い更新するため、ここでの is_friend=true は初期値であり最終的な真実ではない。
     await admin.from("line_friendships").upsert(
       {
         student_id: student.id,
