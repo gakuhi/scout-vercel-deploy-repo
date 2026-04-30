@@ -237,6 +237,7 @@ export type Database = {
         Row: {
           chat_message: boolean | null
           company_member_id: string
+          event_reminder: boolean | null
           id: string
           in_app_enabled: boolean | null
           line_enabled: boolean | null
@@ -248,6 +249,7 @@ export type Database = {
         Insert: {
           chat_message?: boolean | null
           company_member_id: string
+          event_reminder?: boolean | null
           id?: string
           in_app_enabled?: boolean | null
           line_enabled?: boolean | null
@@ -259,6 +261,7 @@ export type Database = {
         Update: {
           chat_message?: boolean | null
           company_member_id?: string
+          event_reminder?: boolean | null
           id?: string
           in_app_enabled?: boolean | null
           line_enabled?: boolean | null

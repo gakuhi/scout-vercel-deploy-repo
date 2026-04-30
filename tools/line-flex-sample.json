@@ -1,0 +1,88 @@
+{
+  "type": "flex",
+  "altText": "新しいスカウトが届きました",
+  "contents": {
+    "type": "bubble",
+    "size": "kilo",
+    "header": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#06C755",
+      "paddingAll": "md",
+      "contents": [
+        {
+          "type": "text",
+          "text": "新しいスカウト",
+          "color": "#FFFFFF",
+          "weight": "bold",
+          "size": "sm"
+        }
+      ]
+    },
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "spacing": "md",
+      "contents": [
+        {
+          "type": "text",
+          "text": "株式会社ココシロ",
+          "weight": "bold",
+          "size": "lg",
+          "wrap": true
+        },
+        {
+          "type": "text",
+          "text": "あなたのプロフィールに興味を持った企業からスカウトが届きました。",
+          "size": "sm",
+          "color": "#666666",
+          "wrap": true
+        },
+        {
+          "type": "separator",
+          "margin": "md"
+        },
+        {
+          "type": "box",
+          "layout": "baseline",
+          "spacing": "sm",
+          "contents": [
+            {
+              "type": "text",
+              "text": "ポジション",
+              "size": "xs",
+              "color": "#999999",
+              "flex": 2
+            },
+            {
+              "type": "text",
+              "text": "ソフトウェアエンジニア",
+              "size": "xs",
+              "color": "#333333",
+              "flex": 5,
+              "wrap": true
+            }
+          ]
+        }
+      ]
+    },
+    "footer": {
+      "type": "box",
+      "layout": "vertical",
+      "spacing": "sm",
+      "contents": [
+        {
+          "type": "button",
+          "style": "primary",
+          "color": "#06C755",
+          "height": "sm",
+          "action": {
+            "type": "uri",
+            "label": "スカウトを確認",
+            "uri": "https://example.com/scouts"
+          }
+        }
+      ]
+    }
+  }
+}
