@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { industrySchema, type IndustryCategory } from "@/shared/constants/industries";
 import { jobCategorySchema, type JobCategory } from "@/shared/constants/job-categories";
 import type {
@@ -486,23 +487,52 @@ async function persistStudentProfile(
   // 乗せる (新メール先と旧メール先の両方で確認 → auth.users.email が更新)。
   // students.email はユーザーの「希望」を即時反映するため通常通り UPDATE する
   // （確認待ちはバナーで明示）。
+  //
+  // 例外: 現在の auth.email が LINE fallback (@line.scout.local) の場合、
+  // Supabase auth v2.185.0 (2026-01) 以降は DNS lookup ベースのバリデーションで
+  // 旧メール (@line.scout.local) が invalid と判定され、Secure Email Change
+  // フロー全体が email_address_invalid で失敗する。この場合は admin API で
+  // 直接 auth.users.email を書き換え、確認メールフローをバイパスする。
+  // (LINE 認証済みユーザーかつ送信不能なダミーから実メールへの初回設定なので、
+  //  確認メールを送る相手がいないし、本人性は LINE auth で担保済みと見なす)
   const newEmail = parsed.data.email;
   const currentAuthEmail = user.email ?? "";
   const emailChanged =
     newEmail.toLowerCase() !== currentAuthEmail.toLowerCase();
 
   if (emailChanged) {
-    const { error: authError } = await supabase.auth.updateUser({
-      email: newEmail,
-    });
-    if (authError) {
-      // eslint-disable-next-line no-console
-      console.error(`[${logContext}] auth.updateUser error:`, authError);
-      // rate-limit / invalid email format / 既存重複などをまとめて表示
-      return {
-        error:
-          "メールアドレス変更の確認メール送信に失敗しました。時間をおいて再度お試しください。",
-      };
+    const isLineFallbackEmail = currentAuthEmail
+      .toLowerCase()
+      .endsWith("@line.scout.local");
+
+    if (isLineFallbackEmail) {
+      const admin = createAdminClient();
+      const { error: authError } = await admin.auth.admin.updateUserById(
+        user.id,
+        { email: newEmail, email_confirm: true },
+      );
+      if (authError) {
+        console.error(
+          `[${logContext}] admin.updateUserById error:`,
+          authError,
+        );
+        return {
+          error:
+            "メールアドレスの設定に失敗しました。時間をおいて再度お試しください。",
+        };
+      }
+    } else {
+      const { error: authError } = await supabase.auth.updateUser({
+        email: newEmail,
+      });
+      if (authError) {
+        console.error(`[${logContext}] auth.updateUser error:`, authError);
+        // rate-limit / invalid email format / 既存重複などをまとめて表示
+        return {
+          error:
+            "メールアドレス変更の確認メール送信に失敗しました。時間をおいて再度お試しください。",
+        };
+      }
     }
   }
 
