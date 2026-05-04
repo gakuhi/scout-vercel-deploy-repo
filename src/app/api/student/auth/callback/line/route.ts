@@ -160,11 +160,20 @@ async function handleDirectLogin(
     { onConflict: "student_id" },
   );
 
-  // magic link でセッション確立
+  // magic link でセッション確立。
+  //
+  // generateLink({ type: 'magiclink' }) は admin API なので shouldCreateUser
+  // オプションが無く、email がヒットしないと新規 auth.users を勝手に作る挙動。
+  // LINE callback 由来の email (lineUser.email or @line.scout.local fallback) は
+  // プロフィール画面でのメール変更後に auth.users.email と乖離するため、existing が
+  // いる場合は auth.users から直接 email を取得し、孤児ユーザーの作成を防ぐ。
+  // (詳細: issue #292)
+  const sessionEmail = await resolveSessionEmail(admin, existing?.id, email);
+
   const { data: linkData, error: linkError } =
     await admin.auth.admin.generateLink({
       type: "magiclink",
-      email,
+      email: sessionEmail,
     });
 
   if (linkError || !linkData) {
@@ -384,11 +393,15 @@ async function handleProductRegistration(
   // handleDirectLogin と同じ magic link → verifyOtp 手順で response に cookie を載せる。
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
   if (baseUrl && redirectUrl.origin === baseUrl) {
-    // 既存ユーザーは findExistingStudent で取れた email、新規ユーザーは
-    // 直前に createUser で使った値（email || `${sub}@line.scout.local`）と一致させる。
-    // existing.email も "" の可能性があるため、ここも falsy fallback (||) を使う。
-    const sessionEmail =
-      existing?.email || email || `${lineUser.sub}@line.scout.local`;
+    // 既存ユーザーは auth.users.email を直接取得 (students.email は Secure Email
+    // Change 確認待ち中に乖離する可能性があるため使わない)。新規ユーザーは直前に
+    // createUser で使った studentEmail (= email || @line.scout.local fallback) と
+    // 一致させる必要がある。詳細: issue #292
+    const sessionEmail = await resolveSessionEmail(
+      admin,
+      existing?.id,
+      email || `${lineUser.sub}@line.scout.local`,
+    );
 
     const { data: linkData, error: linkError } =
       await admin.auth.admin.generateLink({
@@ -446,6 +459,28 @@ type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 //  必須項目すべて揃っているかを判定するため拡張）
 const STUDENT_COMPLETION_COLUMNS =
   "id, line_uid, last_name, first_name, last_name_kana, first_name_kana, email, phone, birthdate, gender, university, faculty, department, academic_type, graduation_year, postal_code, prefecture, city, street";
+
+/**
+ * generateLink({ type: 'magiclink' }) に渡すための email を解決する。
+ *
+ * admin API の generateLink は client-side の signInWithOtp と違って
+ * shouldCreateUser オプションが無く、email がヒットしないと新規 auth.users を
+ * 勝手に作る挙動になっている (参考: supabase/auth#1357)。LINE callback 由来の
+ * email (lineUser.email or @line.scout.local fallback) はプロフィール画面での
+ * メール変更後に auth.users.email と乖離するため、existing がいる場合は必ず
+ * auth.users から直接 email を取得して同期させる。詳細: issue #292
+ */
+async function resolveSessionEmail(
+  supabase: SupabaseAdmin,
+  existingUserId: string | undefined,
+  fallbackEmail: string,
+): Promise<string> {
+  if (!existingUserId) return fallbackEmail;
+
+  const { data, error } = await supabase.auth.admin.getUserById(existingUserId);
+  if (error || !data.user?.email) return fallbackEmail;
+  return data.user.email;
+}
 
 async function findExistingStudent(
   supabase: SupabaseAdmin,
