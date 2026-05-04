@@ -13,6 +13,7 @@ describe("sendNotificationEmail", () => {
     sendMock.mockReset();
     sendMock.mockResolvedValue({ data: { id: "email-id" }, error: null });
     vi.stubEnv("EMAIL_FROM", "ScoutLink <noreply@scoutlink.example>");
+    vi.stubEnv("NEXT_PUBLIC_BASE_URL", "https://scout.example.com");
   });
 
   afterEach(() => {
@@ -103,6 +104,120 @@ describe("sendNotificationEmail", () => {
     expect(consoleErr).toHaveBeenCalled();
   });
 
+  it("actionUrl 指定時は CTA ボタン（href + ラベル）が HTML に含まれる", async () => {
+    const { sendNotificationEmail } = await import("../notification");
+    await sendNotificationEmail({
+      to: "cm@example.com",
+      type: "scout_accepted",
+      title: "スカウトが承諾されました",
+      actionUrl: "https://scout.example.com/company/scouts?highlight=scout-1",
+    });
+
+    const arg = sendMock.mock.calls[0][0];
+    expect(arg.html).toContain(
+      "https://scout.example.com/company/scouts?highlight=scout-1",
+    );
+    // 種別 = scout_accepted の CTA ラベル
+    expect(arg.html).toContain("詳細を見る");
+  });
+
+  it("actionUrl 未指定時は CTA ボタンを描画しない", async () => {
+    const { sendNotificationEmail } = await import("../notification");
+    await sendNotificationEmail({
+      to: "cm@example.com",
+      type: "system_announcement",
+      title: "メンテナンスのお知らせ",
+    });
+
+    const arg = sendMock.mock.calls[0][0];
+    // CTA 用の <a> ボタンの目印（border-radius: 999px）は含まれない
+    expect(arg.html).not.toContain("border-radius: 999px");
+  });
+
+  it("actionUrl が javascript: スキームの場合は href を '#' に落とす（XSS 防御）", async () => {
+    const { sendNotificationEmail } = await import("../notification");
+    await sendNotificationEmail({
+      to: "cm@example.com",
+      type: "scout_accepted",
+      title: "evil",
+      actionUrl: "javascript:alert(1)",
+    });
+
+    const arg = sendMock.mock.calls[0][0];
+    expect(arg.html).not.toContain("javascript:alert");
+    expect(arg.html).toContain('href="#"');
+  });
+
+  it("ヘッダーに ScoutLink ロゴ（/logos/black.png）の絶対 URL が含まれる", async () => {
+    const { sendNotificationEmail } = await import("../notification");
+    await sendNotificationEmail({
+      to: "cm@example.com",
+      type: "scout_accepted",
+      title: "hi",
+    });
+
+    const arg = sendMock.mock.calls[0][0];
+    expect(arg.html).toContain(
+      'src="https://scout.example.com/logos/black.png"',
+    );
+    expect(arg.html).toContain('alt="ScoutLink"');
+  });
+
+  it("NEXT_PUBLIC_BASE_URL 未設定時はロゴ帯を描画しない（壊れた画像を出さない）", async () => {
+    vi.unstubAllEnvs();
+    const { sendNotificationEmail } = await import("../notification");
+    await sendNotificationEmail({
+      to: "cm@example.com",
+      type: "scout_accepted",
+      title: "hi",
+    });
+
+    const arg = sendMock.mock.calls[0][0];
+    expect(arg.html).not.toContain("/logos/black.png");
+    expect(arg.html).not.toContain('alt="ScoutLink"');
+  });
+
+  it("フッターに通知設定ページへのリンクが含まれる", async () => {
+    const { sendNotificationEmail } = await import("../notification");
+    await sendNotificationEmail({
+      to: "cm@example.com",
+      type: "scout_accepted",
+      title: "hi",
+    });
+
+    const arg = sendMock.mock.calls[0][0];
+    expect(arg.html).toContain(
+      "https://scout.example.com/company/notifications/settings",
+    );
+    expect(arg.html).toContain("通知設定ページ");
+  });
+
+  it("全種別で共通のブランドアクセントカラーを使う（種別ごとの色分けは行わない方針）", async () => {
+    const { sendNotificationEmail } = await import("../notification");
+
+    await sendNotificationEmail({
+      to: "cm@example.com",
+      type: "scout_accepted",
+      title: "hi",
+    });
+    const accepted = sendMock.mock.calls[0][0].html as string;
+
+    sendMock.mockClear();
+    await sendNotificationEmail({
+      to: "cm@example.com",
+      type: "scout_declined",
+      title: "hi",
+    });
+    const declined = sendMock.mock.calls[0][0].html as string;
+
+    // 種別が違っても色は同じ（ヘッダー帯の background-color 部分を抜いて比較）
+    const extractAccent = (html: string) =>
+      /background-color:\s*(#[0-9A-Fa-f]{6})/.exec(html)?.[1] ?? null;
+    expect(extractAccent(accepted)).not.toBeNull();
+    expect(extractAccent(accepted)).toBe(extractAccent(declined));
+  });
+
+  // モジュール差し替えを伴うため、副作用が後続テストに残らないよう最後に置く。
   it("getResend が throw（API キー未設定など）した場合は false を返す", async () => {
     vi.resetModules();
     vi.doMock("@/lib/resend/client", () => ({

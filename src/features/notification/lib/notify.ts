@@ -1,7 +1,9 @@
 import { sendNotificationEmail } from "@/lib/email/notification";
-import { buildTextMessage, pushLineMessage } from "@/lib/line/messaging";
+import { pushLineMessage } from "@/lib/line/messaging";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+import { buildActionUrl } from "./build-action-url";
+import { renderLineNotificationMessage } from "./render-line";
 import { resolveEmailTarget } from "./resolve-email-target";
 import { resolveLineTarget } from "./resolve-line-target";
 import {
@@ -62,6 +64,15 @@ export async function notify(input: NotifyInput): Promise<NotifyResult> {
   }
   result.notificationId = data.id;
 
+  // 通知から開く先の URL は LINE / メール 両方の CTA に使うため事前に解決する。
+  // NEXT_PUBLIC_BASE_URL 未設定 / referenceType の解決に失敗した場合は null。
+  const actionUrl = buildActionUrl({
+    recipientRole: input.recipientRole,
+    type: input.type,
+    referenceType: input.referenceType,
+    referenceId: input.referenceId,
+  });
+
   if (shouldSendLine(input.recipientRole, input.type, settings)) {
     try {
       const lineUserId = await resolveLineTarget(
@@ -70,10 +81,13 @@ export async function notify(input: NotifyInput): Promise<NotifyResult> {
         input.recipientRole,
       );
       if (lineUserId) {
-        const text = input.body
-          ? `${input.title}\n\n${input.body}`
-          : input.title;
-        await pushLineMessage(lineUserId, [buildTextMessage(text)]);
+        const messages = renderLineNotificationMessage({
+          type: input.type,
+          title: input.title,
+          body: input.body,
+          actionUrl,
+        });
+        await pushLineMessage(lineUserId, messages);
 
         const { error: updateError } = await admin
           .from("notifications")
@@ -110,6 +124,7 @@ export async function notify(input: NotifyInput): Promise<NotifyResult> {
           type: input.type,
           title: input.title,
           body: input.body,
+          actionUrl,
         });
         result.emailSent = sent;
       }

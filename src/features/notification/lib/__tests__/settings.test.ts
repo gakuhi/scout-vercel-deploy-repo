@@ -59,7 +59,7 @@ describe("features/notification/lib/settings", () => {
       );
     });
 
-    it("企業担当者: scout_accepted / scout_declined が該当カラムで制御", () => {
+    it("企業担当者: scout_accepted は scout_accepted カラムで制御", () => {
       expect(
         isTypeEnabled("company_member", "scout_accepted", companyAllOn),
       ).toBe(true);
@@ -94,6 +94,24 @@ describe("features/notification/lib/settings", () => {
       expect(
         isTypeEnabled("company_member", "chat_new_message", null),
       ).toBe(true);
+    });
+
+    it("企業担当者の scout_declined はプロダクト方針で外部チャネルでは通知しない（設定値に関わらず常に false）", () => {
+      // 設定行が null
+      expect(isTypeEnabled("company_member", "scout_declined", null)).toBe(
+        false,
+      );
+      // 設定で scout_declined: true でも false（プロダクト方針が優先）
+      expect(
+        isTypeEnabled("company_member", "scout_declined", companyAllOn),
+      ).toBe(false);
+      // 設定で scout_declined: false でも当然 false
+      expect(
+        isTypeEnabled("company_member", "scout_declined", {
+          ...companyAllOn,
+          scout_declined: false,
+        }),
+      ).toBe(false);
     });
   });
 

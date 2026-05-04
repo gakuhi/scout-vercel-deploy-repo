@@ -470,6 +470,93 @@ describe("features/notification/lib/notify", () => {
   });
 
   // -------------------------------------------------------------
+  // actionUrl 連携（buildActionUrl → LINE Flex / メール CTA）
+  // -------------------------------------------------------------
+
+  it("学生 LINE: Flex Message として送信され、actionUrl が CTA に入る", async () => {
+    vi.stubEnv("NEXT_PUBLIC_BASE_URL", "https://scout.example.com");
+    studentSettingsResult = { data: studentAllOnFixture, error: null };
+    lineFriendshipResult = {
+      data: { line_uid: "U-line-1" },
+      error: null,
+    };
+
+    const { notify } = await import("../notify");
+    await notify({
+      userId: "student-1",
+      recipientRole: "student",
+      type: "event_reminder",
+      title: "イベント開催",
+      referenceType: "events",
+      referenceId: "event-1",
+    });
+
+    expect(pushLineMessageMock).toHaveBeenCalledTimes(1);
+    const messages = pushLineMessageMock.mock.calls[0][1] as Array<{
+      type: string;
+      contents: { footer?: { contents: Array<{ action: { uri: string } }> } };
+    }>;
+    expect(messages).toHaveLength(1);
+    expect(messages[0].type).toBe("flex");
+    const footer = messages[0].contents.footer;
+    expect(footer).toBeDefined();
+    expect(footer?.contents[0].action.uri).toBe(
+      "https://scout.example.com/student/events/event-1",
+    );
+  });
+
+  it("企業メール: actionUrl が sendNotificationEmail に渡される", async () => {
+    vi.stubEnv("NEXT_PUBLIC_BASE_URL", "https://scout.example.com");
+    companySettingsResult = { data: companyAllOnFixture, error: null };
+    companyMemberResult = {
+      data: { email: "cm@example.com" },
+      error: null,
+    };
+
+    const { notify } = await import("../notify");
+    await notify({
+      userId: "cm-1",
+      recipientRole: "company_member",
+      type: "scout_accepted",
+      title: "スカウトが承諾されました",
+      referenceType: "scouts",
+      referenceId: "scout-99",
+    });
+
+    expect(sendNotificationEmailMock).toHaveBeenCalledTimes(1);
+    const arg = sendNotificationEmailMock.mock.calls[0][0];
+    expect(arg.actionUrl).toBe(
+      "https://scout.example.com/company/scouts?highlight=scout-99",
+    );
+  });
+
+  it("NEXT_PUBLIC_BASE_URL 未設定時は actionUrl=null として送信される（送信自体は成功）", async () => {
+    // NEXT_PUBLIC_BASE_URL を立てない
+    studentSettingsResult = { data: studentAllOnFixture, error: null };
+    lineFriendshipResult = {
+      data: { line_uid: "U-line-1" },
+      error: null,
+    };
+
+    const { notify } = await import("../notify");
+    const result = await notify({
+      userId: "student-1",
+      recipientRole: "student",
+      type: "event_reminder",
+      title: "イベント開催",
+      referenceType: "events",
+      referenceId: "event-1",
+    });
+
+    expect(result.lineSent).toBe(true);
+    const messages = pushLineMessageMock.mock.calls[0][1] as Array<{
+      contents: { footer?: unknown };
+    }>;
+    // actionUrl 解決不可なので CTA フッターは付かない
+    expect(messages[0].contents.footer).toBeUndefined();
+  });
+
+  // -------------------------------------------------------------
   // INSERT 失敗
   // -------------------------------------------------------------
 

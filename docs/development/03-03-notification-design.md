@@ -69,13 +69,15 @@ staging 側には先行して以下の 2 ファイルが個別実装として存
 
 | モジュール | 役割 |
 |---|---|
-| [`src/lib/line/messaging.ts`](../../src/lib/line/messaging.ts) | LINE Messaging API `/v2/bot/message/push` の薄いラッパ |
+| [`src/lib/line/messaging.ts`](../../src/lib/line/messaging.ts) | LINE Messaging API `/v2/bot/message/push` の薄いラッパ（Text / Flex メッセージ型） |
 | [`src/lib/resend/client.ts`](../../src/lib/resend/client.ts) | Resend SDK の薄いラッパ（API キー検証 + シングルトン） |
-| [`src/lib/email/notification.ts`](../../src/lib/email/notification.ts) | 通知メールの送信（Resend 呼び出し + HTML テンプレート + subject CR/LF サニタイズ） |
+| [`src/lib/email/notification.ts`](../../src/lib/email/notification.ts) | 通知メールの送信（Resend 呼び出し + 種別別 CTA ラベル / フッター付き HTML テンプレート + subject CR/LF サニタイズ + URL スキーム検証） |
 | [`src/features/notification/lib/types.ts`](../../src/features/notification/lib/types.ts) | `NotifyInput` / `NotifyResult` / `NOTIFICATION_TYPE_LABELS` 等の型・定数定義 |
 | [`src/features/notification/lib/settings.ts`](../../src/features/notification/lib/settings.ts) | 通知設定の取得 + 種別 ON/OFF 判定 + チャネル別送信可否（`shouldSendLine` / `shouldSendEmail`） |
 | [`src/features/notification/lib/resolve-line-target.ts`](../../src/features/notification/lib/resolve-line-target.ts) | 学生の LINE user_id を `line_friendships` から解決（企業担当者は常に null） |
 | [`src/features/notification/lib/resolve-email-target.ts`](../../src/features/notification/lib/resolve-email-target.ts) | 企業担当者のメールアドレスを `company_members.email` から解決（学生は常に null） |
+| [`src/features/notification/lib/build-action-url.ts`](../../src/features/notification/lib/build-action-url.ts) | 通知から飛ばす先の URL を `(role, type, referenceType, referenceId)` から構築 |
+| [`src/features/notification/lib/render-line.ts`](../../src/features/notification/lib/render-line.ts) | LINE Flex Message（共通ブランドカラー + 種別別 CTA ボタン）の構築 + テキスト fallback |
 | [`src/features/notification/lib/notify.ts`](../../src/features/notification/lib/notify.ts) | 司令塔。上記を順番に呼ぶ |
 | [`src/features/notification/index.ts`](../../src/features/notification/index.ts) | public エクスポート |
 
@@ -84,14 +86,15 @@ staging 側には先行して以下の 2 ファイルが個別実装として存
 1. Service Role クライアント取得
 2. `recipientRole` に応じて `student_notification_settings` / `company_notification_settings` を取得
 3. `notifications` に INSERT（**設定に関わらず常時実行**。アプリ内には履歴を必ず残す方針）
-4. 学生 (`recipientRole = "student"`) で `shouldSendLine()` が true なら:
+4. `buildActionUrl()` で「通知から開く先の URL」を構築（LINE / メール 共通。`NEXT_PUBLIC_BASE_URL` 未設定時は null）
+5. 学生 (`recipientRole = "student"`) で `shouldSendLine()` が true なら:
    - `line_friendships`（`student_id = userId AND is_friend = true`）から LINE user_id を解決
-   - 解決できれば LINE Messaging API に push
+   - 解決できれば `renderLineNotificationMessage()` で Flex Message を構築し、LINE Messaging API に push
    - 送信成功した場合、step 3 で作られた notifications 行の `line_sent_at` を更新
-5. 企業担当者 (`recipientRole = "company_member"`) で `shouldSendEmail()` が true なら:
+6. 企業担当者 (`recipientRole = "company_member"`) で `shouldSendEmail()` が true なら:
    - `company_members.email` からメールアドレスを解決
-   - 解決できれば Resend で通知メールを送信
-6. fail-open ポリシー:
+   - 解決できれば Resend で通知メールを送信（`actionUrl` を CTA ボタンに反映）
+7. fail-open ポリシー:
    - LINE / メール送信失敗は console.error でログし、アプリ内通知は残す
    - `line_sent_at` の UPDATE 失敗も握りつぶしてログのみ残す（LINE 送信自体は成功しているため `lineSent: true` を返す）
 
@@ -125,6 +128,74 @@ staging 側には先行して以下の 2 ファイルが個別実装として存
 | ON | OFF | -    | アプリ内通知のみ保存 |
 | OFF | -    | -    | アプリ内通知のみ保存 |
 
+## 通知の見た目とアクション
+
+### 遷移先 URL の解決（`buildActionUrl`）
+
+[`build-action-url.ts`](../../src/features/notification/lib/build-action-url.ts) は `(recipientRole, type, referenceType, referenceId)` を入力に受け、通知から開く先の絶対 URL を組み立てる。LINE Flex Message のボタンと、メールの CTA ボタンの双方で同じ結果を使う。
+
+| role           | type                      | 行き先                                     |
+|---             |---                        |---                                          |
+| student        | scout_received            | `/student/scout`                            |
+| student        | chat_new_message          | `/student/messages`                         |
+| student        | event_reminder            | `/student/events/{referenceId}`             |
+| student        | system_announcement       | `/student/dashboard`                        |
+| company_member | scout_accepted / declined | `/company/scouts?highlight={referenceId}`   |
+| company_member | chat_new_message          | `/company/messages/{referenceId}`           |
+| company_member | event_reminder            | `/company/events/{referenceId}/edit`        |
+| company_member | system_announcement       | `/company/notifications`                    |
+
+`referenceId` 必須のルートで `referenceId` が無い場合は、当該役割の通知一覧 / ダッシュボードにフォールバックする。`NEXT_PUBLIC_BASE_URL` が未設定の場合は null を返し、LINE Flex / メール側で「CTA ボタンを描画しない」挙動にフォールバックする（送信自体は成功させる）。
+
+### LINE Flex Message のテンプレート
+
+[`render-line.ts`](../../src/features/notification/lib/render-line.ts) が種別を見て Bubble を構築する。共通レイアウト:
+
+- **Header（色帯）**: 共通のブランドアクセントカラーを背景に、白抜きで `NOTIFICATION_TYPE_LABELS[type]` を表示（種別ごとの色分けはしない）
+- **Body**: タイトル（太字）+ 本文（淡色、`wrap`）。本文が空なら省略
+- **Footer（CTA）**: `actionUrl` がある場合のみ「種別ごとの CTA ラベル」つきの uri ボタンを 1 件だけ追加
+- `altText` には `【種別ラベル】タイトル` を 400 文字以内に切り詰めて入れる
+
+`actionUrl` が解決できなかった場合は Footer を作らない（ボタン無しの Bubble は許容される）。送信は失敗させない。
+
+### メール HTML テンプレート
+
+[`src/lib/email/notification.ts`](../../src/lib/email/notification.ts) が Flex Message と同じブランドアクセントカラー / 種別別 CTA ラベルでメール HTML を組み立てる。構造:
+
+- **ヘッダー帯**: ブランドアクセントカラー背景に種別ラベル
+- **本文**: タイトル + 本文 + CTA ボタン（`actionUrl` がある場合のみ、丸角 pill 形のリンク）
+- **フッター**: `ScoutLink` のブランド表示 + `/company/notifications/settings` への通知設定リンク
+
+### アクセントカラー / 種別ごとの CTA ラベル
+
+**色分けは行わない方針**。視覚的な差別化はせず、種別ラベル + CTA ラベル + 本文の文章で内容を伝える。LINE Flex / メール 双方で **共通のブランドアクセントカラー**（現行値: `#001F41`）をヘッダー帯と CTA ボタンに使う。値は `render-line.ts` / `email/notification.ts` の `BRAND_ACCENT_COLOR` 定数で管理しており、デザインシステム化された段階で一括差し替える前提。
+
+種別の違いは以下で表現する:
+
+- **種別ラベル**: `NOTIFICATION_TYPE_LABELS` の文字列をヘッダー帯に表示
+- **CTA ラベル**: 種別ごとに `TYPE_CTA_LABEL` で切り替え
+
+| 種別 | CTA ラベル |
+|---|---|
+| `scout_received` | スカウトを確認 |
+| `scout_accepted` | 詳細を見る |
+| `scout_declined` | 詳細を見る |
+| `chat_new_message` | メッセージを開く |
+| `event_reminder` | イベントを確認 |
+| `system_announcement` | 確認する |
+
+### セキュリティ上の注意
+
+- メール HTML は `escapeHtml()` で XSS 対策、subject は CR/LF を空白に置換しヘッダーインジェクションを防ぐ（既存の対応継続）
+- `actionUrl` の `href` 埋め込みは `safeHref()` で `^https?://` 以外を `#` に落とす（防御的多重化。本来 `buildActionUrl()` が `NEXT_PUBLIC_BASE_URL` 由来で安全な URL を返す前提だが、設定漏れ・将来の改修に備えてダブルチェック）
+
+### 本 PR でカバーしない（後続 Issue）
+
+- **コピー（title / body）の集約**: 種別 + コンテキスト（送信者名 / スカウトのポジション 等）から canonical な title / body を組み立てる責務は、現状 `notify()` の呼び出し側にある。配線 Issue が確定する前にテンプレートを凍結すると後で再設計コストが大きいため、本 PR では呼び出し側の自由にする
+- **多言語化**: 文言は日本語固定。i18n は将来対応
+- **メール送信元の本番ドメイン認証**: SPF / DKIM / DMARC の設定は Resend 側のドメイン認証として運用で行う
+- **特定電子メール法準拠フッターの本番情報**: 会社名 / 住所 / 連絡先などの送信者表記は、運営主体が確定したタイミングでフッターに追記する
+
 ## 設定行の扱い
 
 `notify()` は **設定行が存在しなくても動作する**。[`settings.ts`](../../src/features/notification/lib/settings.ts) の各判定関数は設定行が `null` の場合に `?? true` でデフォルト ON として扱うため、行が未生成のユーザーには全通知が届く（fail-open）。
@@ -155,10 +226,12 @@ staging 側には先行して以下の 2 ファイルが個別実装として存
 |---|:---:|:---:|---|
 | `scout_received` | ○ |   | `student.scout_received` |
 | `scout_accepted` |   | ○ | `company.scout_accepted` |
-| `scout_declined` |   | ○ | `company.scout_declined` |
+| `scout_declined` |   | **送らない** (注 1) | `company.scout_declined`（参照されない）|
 | `chat_new_message` | ○ | ○ | 両方 `chat_message` |
 | `event_reminder` | ○ | ○ | 両方 `event_reminder`（企業側は migration 20260429100000 で追加）|
 | `system_announcement` | ○ | ○ | 両方 `system_announcement` |
+
+> **注 1（`scout_declined` を外部チャネルで通知しない方針）**: プロダクト方針として、スカウト辞退はメール / LINE 等の外部チャネルでは通知しない。`isTypeEnabled("company_member", "scout_declined", _)` は設定値に関わらず常に `false` を返すため、`shouldSendEmail()` も常に false。`notifications` テーブルへの INSERT は notify() 側で常時実行されるためアプリ内の履歴は残る。`company_notification_settings.scout_declined` カラムは現状参照されない（`in_app_enabled` 同様、別 Issue で削除する想定）。
 
 役割と type の組み合わせが不整合（例: 学生に `scout_accepted` を送ろうとする）な場合、`shouldSendLine()` / `shouldSendEmail()` は `false` を返し外部チャネル送信は行わない。アプリ内通知（`notifications` への INSERT）は実行されるため、不整合な呼び出しは履歴として残る点に注意（`isTypeEnabled()` 側で防ぐべき責務）。
 

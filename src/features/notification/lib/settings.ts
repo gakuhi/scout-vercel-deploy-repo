@@ -97,7 +97,12 @@ export function isTypeEnabled(
     case "scout_accepted":
       return c?.scout_accepted ?? true;
     case "scout_declined":
-      return c?.scout_declined ?? true;
+      // プロダクト方針として scout_declined はメール / LINE では通知しない。
+      // notifications テーブルへの INSERT は notify() 側で常時実行されるため
+      // アプリ内の履歴は残るが、外部チャネルへの送信はチャネルを問わず行わない。
+      // company_notification_settings.scout_declined カラムは現状参照されない
+      // （in_app_enabled 同様、別 Issue で削除する想定）。設計書 03-03 参照。
+      return false;
     case "chat_new_message":
       return c?.chat_message ?? true;
     case "event_reminder":

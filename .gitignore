@@ -56,3 +56,6 @@ skills
 
 # metabase local data (CSV/JSON for testing, not tracked)
 /docs/metabase/
+
+# 通知ローカルプレビュー (tools/dump-notification-samples.ts の出力)
+/tools/samples/

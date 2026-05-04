@@ -17,7 +17,18 @@ export type LineTextMessage = {
   text: string;
 };
 
-export type LineMessage = LineTextMessage;
+/**
+ * Flex Message。bubble の形は LINE 仕様（多階層）でかなり複雑なため、
+ * 実装上は型を緩めに `unknown` で受け、構築側の責務で正しい構造を作る。
+ * 参考: https://developers.line.biz/en/reference/messaging-api/#flex-message
+ */
+export type LineFlexMessage = {
+  type: "flex";
+  altText: string;
+  contents: unknown;
+};
+
+export type LineMessage = LineTextMessage | LineFlexMessage;
 
 function getAccessToken(): string {
   const token = process.env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN;
