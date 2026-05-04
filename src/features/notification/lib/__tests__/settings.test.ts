@@ -194,6 +194,12 @@ describe("features/notification/lib/settings", () => {
       ).toBe(false);
     });
 
+    it("scout_declined はメール送信対象外（アプリ内通知のみ）", () => {
+      expect(
+        shouldSendEmail("company_member", "scout_declined", companyAllOn),
+      ).toBe(false);
+    });
+
     it("受信者 role と type の組み合わせ不整合なら false（企業に scout_received 等）", () => {
       expect(
         shouldSendEmail("company_member", "scout_received", companyAllOn),

@@ -21,7 +21,7 @@ const updateMock = vi.fn();
 const fromMock = vi.fn();
 const getUserMock = vi.fn();
 const revalidatePathMock = vi.fn();
-const createNotificationMock = vi.fn();
+const notifyMock = vi.fn();
 
 const createClientMock = vi.fn(async () => ({
   auth: { getUser: getUserMock },
@@ -36,8 +36,8 @@ vi.mock("next/cache", () => ({
   revalidatePath: revalidatePathMock,
 }));
 
-vi.mock("@/features/company/app/notifications/create", () => ({
-  createNotification: createNotificationMock,
+vi.mock("@/features/notification", () => ({
+  notify: notifyMock,
 }));
 
 function chainResolves(result: SelectResult) {
@@ -69,8 +69,8 @@ beforeEach(() => {
   fromMock.mockReset();
   getUserMock.mockReset();
   revalidatePathMock.mockClear();
-  createNotificationMock.mockReset();
-  createNotificationMock.mockResolvedValue({ created: true });
+  notifyMock.mockReset();
+  notifyMock.mockResolvedValue({ lineSent: false, emailSent: false });
 });
 
 afterEach(() => {
@@ -117,7 +117,7 @@ describe("acceptScout / declineScout", () => {
     expect(orMock).toHaveBeenCalledWith(
       expect.stringMatching(/expires_at\.is\.null,expires_at\.gt\./),
     );
-    expect(createNotificationMock).not.toHaveBeenCalled();
+    expect(notifyMock).not.toHaveBeenCalled();
     expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
@@ -134,7 +134,7 @@ describe("acceptScout / declineScout", () => {
     );
 
     expect(result.error).toBe("承諾に失敗しました");
-    expect(createNotificationMock).not.toHaveBeenCalled();
+    expect(notifyMock).not.toHaveBeenCalled();
   });
 
   it("declineScout の supabase エラーは辞退失敗メッセージを返す", async () => {
@@ -174,8 +174,9 @@ describe("acceptScout / declineScout", () => {
     );
 
     expect(result.success).toBe(true);
-    expect(createNotificationMock).toHaveBeenCalledWith({
+    expect(notifyMock).toHaveBeenCalledWith({
       userId: "company-member-1",
+      recipientRole: "company_member",
       type: "scout_accepted",
       title: "山田 太郎さんがスカウトを承諾しました",
       referenceType: "scouts",
@@ -198,7 +199,7 @@ describe("acceptScout / declineScout", () => {
       ],
       error: null,
     });
-    createNotificationMock.mockRejectedValue(new Error("notify failed"));
+    notifyMock.mockRejectedValue(new Error("notify failed"));
 
     const { declineScout } = await import("../actions");
     const result = await declineScout(
@@ -208,7 +209,7 @@ describe("acceptScout / declineScout", () => {
 
     expect(result.success).toBe(true);
     // 学生名が取れない場合は "学生" にフォールバック
-    expect(createNotificationMock).toHaveBeenCalledWith(
+    expect(notifyMock).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "scout_declined",
         title: "学生さんがスカウトを辞退しました",

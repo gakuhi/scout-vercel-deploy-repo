@@ -1,5 +1,6 @@
 "use server";
 
+import { notify } from "@/features/notification";
 import { createClient } from "@/lib/supabase/server";
 import { formatLastMessagePreview, normalizeSenderId } from "./lib/format";
 import type {
@@ -113,8 +114,7 @@ export async function getMessages(scoutId: string): Promise<ChatMessageRow[]> {
  *   scouts を一度 SELECT して当事者かつ accepted であることを確認する
  *   （RLS 側でも同条件で弾くが、アプリ層で先に切ることで UX メッセージを分離）
  * - 成功時は挿入行を返し、client 側の楽観追加で表示中のメッセージを確定できる
- * - TODO(通知基盤 / Issue #124): 送信後に deliverNotification('chat_new_message')
- *   を呼ぶ。本 PR では通知基盤が merge されてから結線する
+ * - 送信成功後にスカウト送信元の企業担当者へ chat_new_message 通知を送る
  */
 export async function sendMessage(
   scoutId: string,
@@ -136,7 +136,7 @@ export async function sendMessage(
 
   const { data: scout } = await supabase
     .from("scouts")
-    .select("status")
+    .select("status, sender_id")
     .eq("id", scoutId)
     .eq("student_id", user.id)
     .maybeSingle();
@@ -179,6 +179,19 @@ export async function sendMessage(
     }
     return { ok: false, error: "送信に失敗しました。時間をおいて再度お試しください。" };
   }
+
+  // 企業担当者へチャット新着通知（失敗してもメッセージ送信自体は成功扱い）
+  notify({
+    userId: scout.sender_id,
+    recipientRole: "company_member",
+    type: "chat_new_message",
+    title: "学生からメッセージが届きました",
+    body: trimmed.slice(0, 100),
+    referenceType: "scouts",
+    referenceId: scoutId,
+  }).catch((e) => {
+    console.error("[sendMessage] notify failed:", e);
+  });
 
   return { ok: true, message: dbRowToMessage(data as ChatMessageDbRow) };
 }

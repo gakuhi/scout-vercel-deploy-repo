@@ -15,6 +15,7 @@ const createSignedUrlsMock = vi.fn();
 const selectMessagesMock = vi.fn();
 const selectScoutInfoMock = vi.fn();
 const selectScoutIdsMock = vi.fn();
+const notifyMock = vi.fn();
 
 // insertMock に _result を持たせる拡張
 // @ts-expect-error -- テスト用カスタムプロパティ
@@ -126,6 +127,10 @@ vi.mock("next/cache", () => ({
   revalidatePath: revalidatePathMock,
 }));
 
+vi.mock("@/features/notification", () => ({
+  notify: (...args: unknown[]) => notifyMock(...args),
+}));
+
 function setupOwner() {
   getUserMock.mockResolvedValue({
     data: { user: { id: "user-1" } },
@@ -231,7 +236,8 @@ describe("sendMessage", () => {
 
   it("正常に送信できた場合は ok を返す", async () => {
     setupOwner();
-    selectScoutMock.mockResolvedValue({ data: { status: "accepted" } });
+    notifyMock.mockResolvedValue({ lineSent: false, emailSent: false });
+    selectScoutMock.mockResolvedValue({ data: { status: "accepted", student_id: "student-1" } });
     // @ts-expect-error -- テスト用カスタムプロパティ
     insertMock._result = {
       data: {
@@ -252,6 +258,59 @@ describe("sendMessage", () => {
     );
     const result = await sendMessage("scout-1", "テスト");
     expect(result.ok).toBe(true);
+    expect(notifyMock).toHaveBeenCalledWith({
+      userId: "student-1",
+      recipientRole: "student",
+      type: "chat_new_message",
+      title: "企業からメッセージが届きました",
+      body: "テスト",
+      referenceType: "scouts",
+      referenceId: "scout-1",
+    });
+  });
+
+  it("INSERT失敗の場合は notify を呼ばない", async () => {
+    setupOwner();
+    selectScoutMock.mockResolvedValue({ data: { status: "accepted", student_id: "student-1" } });
+    // @ts-expect-error -- テスト用カスタムプロパティ
+    insertMock._result = {
+      data: null,
+      error: { message: "RLS violation" },
+    };
+
+    const { sendMessage } = await import(
+      "@/features/company/app/messages/actions"
+    );
+    const result = await sendMessage("scout-1", "テスト");
+    expect(result.ok).toBe(false);
+    expect(notifyMock).not.toHaveBeenCalled();
+  });
+
+  it("notify が失敗してもメッセージ送信は成功扱いになる", async () => {
+    setupOwner();
+    notifyMock.mockRejectedValue(new Error("notify failed"));
+    selectScoutMock.mockResolvedValue({ data: { status: "accepted", student_id: "student-1" } });
+    // @ts-expect-error -- テスト用カスタムプロパティ
+    insertMock._result = {
+      data: {
+        id: "msg-2",
+        scout_id: "scout-1",
+        sender_id: "user-1",
+        sender_role: "company_member",
+        content: "テスト",
+        created_at: "2026-04-30T10:00:00Z",
+        read_at: null,
+        attachments: [],
+      },
+      error: null,
+    };
+
+    const { sendMessage } = await import(
+      "@/features/company/app/messages/actions"
+    );
+    const result = await sendMessage("scout-1", "テスト");
+    expect(result.ok).toBe(true);
+    expect(notifyMock).toHaveBeenCalled();
   });
 
   it("INSERT失敗の場合はエラーを返す（DBエラー隠蔽）", async () => {

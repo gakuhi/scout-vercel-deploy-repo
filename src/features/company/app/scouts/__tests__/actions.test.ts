@@ -5,9 +5,11 @@ vi.mock("server-only", () => ({}));
 const getUserMock = vi.fn();
 const getCompanyMembershipMock = vi.fn();
 const getAlreadyScoutedStudentIdsMock = vi.fn();
-const insertMock = vi.fn();
+const selectMock = vi.fn();
+const insertMock = vi.fn(() => ({ select: selectMock }));
 const rpcMock = vi.fn();
 const revalidatePathMock = vi.fn();
+const notifyMock = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(() =>
@@ -35,6 +37,10 @@ vi.mock("@/features/company/app/scouts/queries", () => ({
 
 vi.mock("next/cache", () => ({
   revalidatePath: revalidatePathMock,
+}));
+
+vi.mock("@/features/notification", () => ({
+  notify: (...args: unknown[]) => notifyMock(...args),
 }));
 
 function buildFormData(values: Record<string, string | string[]>): FormData {
@@ -178,7 +184,14 @@ describe("sendScoutAction", () => {
       data: { success: true, remaining: 28 },
       error: null,
     });
-    insertMock.mockResolvedValue({ error: null });
+    notifyMock.mockResolvedValue({ lineSent: false, emailSent: false });
+    selectMock.mockResolvedValue({
+      data: [
+        { id: "scout-1", student_id: "student-1" },
+        { id: "scout-2", student_id: "student-2" },
+      ],
+      error: null,
+    });
 
     const { sendScoutAction } = await import(
       "@/features/company/app/scouts/actions"
@@ -188,6 +201,7 @@ describe("sendScoutAction", () => {
     expect(result.success).toBe(true);
     expect(result.sentCount).toBe(2);
     expect(result.skippedCount).toBe(0);
+    expect(notifyMock).toHaveBeenCalledTimes(2);
   });
 
   it("一部が送信済みの場合は未送信分のみ送信する", async () => {
@@ -197,7 +211,11 @@ describe("sendScoutAction", () => {
       data: { success: true, remaining: 29 },
       error: null,
     });
-    insertMock.mockResolvedValue({ error: null });
+    notifyMock.mockResolvedValue({ lineSent: false, emailSent: false });
+    selectMock.mockResolvedValue({
+      data: [{ id: "scout-2", student_id: "student-2" }],
+      error: null,
+    });
 
     const { sendScoutAction } = await import(
       "@/features/company/app/scouts/actions"
@@ -207,6 +225,7 @@ describe("sendScoutAction", () => {
     expect(result.success).toBe(true);
     expect(result.sentCount).toBe(1);
     expect(result.skippedCount).toBe(1);
+    expect(notifyMock).toHaveBeenCalledTimes(1);
   });
 
   it("INSERT が失敗した場合はエラーを返す（DBエラー隠蔽）", async () => {
@@ -216,7 +235,10 @@ describe("sendScoutAction", () => {
       data: { success: true, remaining: 28 },
       error: null,
     });
-    insertMock.mockResolvedValue({ error: { message: "FK violation" } });
+    selectMock.mockResolvedValue({
+      data: null,
+      error: { message: "FK violation" },
+    });
 
     const { sendScoutAction } = await import(
       "@/features/company/app/scouts/actions"
@@ -225,6 +247,7 @@ describe("sendScoutAction", () => {
 
     expect(result.error).toBe("スカウトの送信に失敗しました");
     expect(result.error).not.toContain("FK");
+    expect(notifyMock).not.toHaveBeenCalled();
   });
 
   it("admin ロールでも送信できる", async () => {
@@ -240,7 +263,14 @@ describe("sendScoutAction", () => {
       data: { success: true, remaining: 28 },
       error: null,
     });
-    insertMock.mockResolvedValue({ error: null });
+    notifyMock.mockResolvedValue({ lineSent: false, emailSent: false });
+    selectMock.mockResolvedValue({
+      data: [
+        { id: "scout-1", student_id: "student-1" },
+        { id: "scout-2", student_id: "student-2" },
+      ],
+      error: null,
+    });
 
     const { sendScoutAction } = await import(
       "@/features/company/app/scouts/actions"

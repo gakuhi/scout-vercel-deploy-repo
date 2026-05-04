@@ -60,9 +60,7 @@ export async function getCompanyNotificationSettings(
  *
  * - 学生には event_reminder があり、scout_accepted/declined がない
  * - 企業担当者には scout_accepted/declined があり、event_reminder もある
- *   （migration 20260429100000 で event_reminder カラムを追加。staging の
- *   src/features/company/app/notifications/create.ts の SETTING_KEY_MAP も
- *   event_reminder を企業設定にマップしているため、企業もイベントリマインダー対象）
+ *   （migration 20260429100000 で event_reminder カラムを追加）
  *
  * 受信者の role と通知 type の組み合わせが不整合な場合（例: 学生に scout_accepted）は
  * 「その受信者にとって送るべき通知ではない」とみなして false を返す。
@@ -165,6 +163,8 @@ export function shouldSendEmail(
     | null,
 ): boolean {
   if (role !== "company_member") return false;
+  // 辞退通知はアプリ内のみ。メールは送らない。
+  if (type === "scout_declined") return false;
   const c = settings as CompanyNotificationSettings | null;
   return isTypeEnabled(role, type, settings) && (c?.line_enabled ?? true);
 }

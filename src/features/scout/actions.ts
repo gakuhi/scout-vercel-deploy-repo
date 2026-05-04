@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createNotification } from "@/features/company/app/notifications/create";
+import { notify } from "@/features/notification";
 import { getSignedUrls } from "@/lib/storage/signed-url";
 import { createClient } from "@/lib/supabase/server";
 import { formatSender, toDisplayStatus } from "./lib/display";
@@ -240,8 +240,9 @@ async function notifyCompanyOfResponse(
       .filter(Boolean)
       .join(" ") || "学生";
   const verb = next === "accepted" ? "承諾" : "辞退";
-  await createNotification({
+  await notify({
     userId: scout.sender_id,
+    recipientRole: "company_member",
     type: next === "accepted" ? "scout_accepted" : "scout_declined",
     title: `${studentName}さんがスカウトを${verb}しました`,
     referenceType: "scouts",

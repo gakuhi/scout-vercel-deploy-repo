@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { notify } from "@/features/notification";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { scoutMessageSchema, MONTHLY_SCOUT_LIMIT } from "./schemas";
@@ -102,13 +103,29 @@ export async function sendScoutAction(
     expires_at: expiresAt,
   }));
 
-  const { error: insertError } = await supabase
+  const { data: inserted, error: insertError } = await supabase
     .from("scouts")
-    .insert(rows);
+    .insert(rows)
+    .select("id, student_id");
 
-  if (insertError) {
+  if (insertError || !inserted) {
     console.error("sendScoutAction insert error:", insertError);
     return { error: "スカウトの送信に失敗しました" };
+  }
+
+  // 各学生へスカウト受信通知（失敗してもスカウト送信自体は成功扱い）
+  for (const scout of inserted) {
+    notify({
+      userId: scout.student_id,
+      recipientRole: "student",
+      type: "scout_received",
+      title: "企業からスカウトが届きました",
+      body: `「${parsed.data.subject}」`,
+      referenceType: "scouts",
+      referenceId: scout.id,
+    }).catch((e) => {
+      console.error("[sendScoutAction] notify failed:", e);
+    });
   }
 
   revalidatePath("/company/students");

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { deliverNotification } from "@/lib/notifications/deliver";
+import { notify } from "@/features/notification";
 import { createClient } from "@/lib/supabase/server";
 import {
   notificationSettingsSchema,
@@ -242,7 +242,7 @@ export async function markAllNotificationsAsRead(): Promise<SettingsActionState>
 
 /**
  * 開発環境でのみ使用可能な、通知配信のテストアクション。
- * {@link deliverNotification} を現在ログイン中の学生向けに呼び出して
+ * {@link notify} を現在ログイン中の学生向けに呼び出して
  * 通知設定の ON/OFF による挙動を手元で検証する。
  */
 export async function sendTestNotification(): Promise<SettingsActionState> {
@@ -259,8 +259,9 @@ export async function sendTestNotification(): Promise<SettingsActionState> {
     return { error: "認証エラー。再度ログインしてください。" };
   }
 
-  await deliverNotification({
+  await notify({
     userId: user.id,
+    recipientRole: "student",
     type: "system_announcement",
     title: "テスト通知",
     body: "通知設定の挙動を確認するためのテスト通知です。",

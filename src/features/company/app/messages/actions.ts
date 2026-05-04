@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { notify } from "@/features/notification";
 import { createClient } from "@/lib/supabase/server";
 import { getCompanyMembership } from "./queries";
 import type { ChatAttachment, ChatMessageRow } from "./schema";
@@ -32,7 +33,7 @@ export async function sendMessage(
 
   const { data: scout } = await supabase
     .from("scouts")
-    .select("status")
+    .select("status, student_id")
     .eq("id", scoutId)
     .eq("company_id", membership.companyId)
     .maybeSingle();
@@ -70,6 +71,19 @@ export async function sendMessage(
     console.error("sendMessage error:", error);
     return { ok: false, error: "送信に失敗しました" };
   }
+
+  // 学生へチャット新着通知（失敗してもメッセージ送信自体は成功扱い）
+  notify({
+    userId: scout.student_id,
+    recipientRole: "student",
+    type: "chat_new_message",
+    title: "企業からメッセージが届きました",
+    body: trimmed.slice(0, 100),
+    referenceType: "scouts",
+    referenceId: scoutId,
+  }).catch((e) => {
+    console.error("[sendMessage] notify failed:", e);
+  });
 
   revalidatePath(`/company/messages/${scoutId}`);
   return {

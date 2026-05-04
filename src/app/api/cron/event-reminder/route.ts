@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireCronAuth } from "@/lib/sync/shared";
-// TODO: feat/company-notifications マージ後に有効化
-// import { notifyEventReminder } from "@/features/company/app/notifications/create";
+import { notify } from "@/features/notification";
 
 /**
  * イベントリマインダー cron バッチ
@@ -58,13 +57,15 @@ export async function GET(request: Request) {
 
   for (const event of events) {
     try {
-      // TODO: feat/company-notifications マージ後にコメント解除
-      // await notifyEventReminder({
-      //   createdBy: event.created_by,
-      //   eventTitle: event.title,
-      //   eventId: event.id,
-      // });
-      console.log(`[cron/event-reminder] 通知準備完了: ${event.title} → ${event.created_by}`);
+      await notify({
+        userId: event.created_by,
+        recipientRole: "company_member",
+        type: "event_reminder",
+        title: "イベント開催まであと1日です",
+        body: `「${event.title}」が明日開催されます。`,
+        referenceType: "events",
+        referenceId: event.id,
+      });
       notified++;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
