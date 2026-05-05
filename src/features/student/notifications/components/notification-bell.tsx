@@ -73,14 +73,18 @@ export function NotificationBell() {
         aria-expanded={open}
         aria-label="通知を開く"
         className={cn(
-          "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors duration-200 font-medium",
+          "w-full flex items-center gap-3 px-4 py-4 md:py-3 rounded-xl transition-colors duration-200 font-medium text-base md:text-sm",
           open
             ? "text-primary font-bold border-2 border-primary bg-surface-container"
             : "text-on-surface-variant hover:text-primary hover:bg-surface-container-low",
         )}
       >
         <span className="relative inline-flex">
-          <Icon name="notifications" filled={open} />
+          <Icon
+            name="notifications"
+            filled={open}
+            className="text-2xl md:text-xl"
+          />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-tertiary-container text-white text-[9px] font-bold flex items-center justify-center">
               {unreadCount > 9 ? "9+" : unreadCount}
