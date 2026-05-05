@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { EventForm } from "@/features/company/app/events/components/event-form";
 import { createEventAction } from "@/features/company/app/events/actions/save";
 import { getCompanyMembership } from "@/features/company/app/events/queries";
@@ -9,10 +9,7 @@ export const metadata = {
 };
 
 export default async function NewEventPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/company/login");
 
   const membership = await getCompanyMembership(user.id);

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { inviteMemberSchema } from "@/features/company/app/members/schemas";
 import {
@@ -31,9 +32,7 @@ export async function inviteMemberAction(
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "ログインし直してください" };
 
   const [companyId, role] = await Promise.all([

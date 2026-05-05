@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { getCompanyMembership } from "@/features/company/app/events/queries";
 
 const UUID_REGEX =
@@ -22,9 +23,7 @@ export async function toggleEventPublishAction(
 ): Promise<TogglePublishState> {
   if (!isValidUuid(eventId)) return { error: "無効なIDです" };
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "ログインし直してください" };
 
   const membership = await getCompanyMembership(user.id);
@@ -68,9 +67,7 @@ export async function deleteEventAction(
 ): Promise<TogglePublishState> {
   if (!isValidUuid(eventId)) return { error: "無効なIDです" };
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "ログインし直してください" };
 
   const membership = await getCompanyMembership(user.id);

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { industrySchema, type IndustryCategory } from "@/shared/constants/industries";
 import { jobCategorySchema, type JobCategory } from "@/shared/constants/job-categories";
@@ -36,9 +37,7 @@ function deriveActivityLevel(score: number | null): ActivityLevel | null {
 
 export async function getProfile() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
 
   if (!user) return null;
 
@@ -283,9 +282,7 @@ export type ProfileViewData = ProfileMock & {
 
 export async function getProfileViewData(): Promise<ProfileViewData | null> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
 
   if (!user) return null;
 
@@ -440,9 +437,7 @@ async function persistStudentProfile(
   logContext: string,
 ): Promise<ProfileActionState | null> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
 
   if (!user) {
     return { error: "認証エラー。再度ログインしてください。" };

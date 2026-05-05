@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { eventSchema } from "@/features/company/app/events/schemas";
 import { getCompanyMembership } from "@/features/company/app/events/queries";
 
@@ -16,9 +17,7 @@ export async function createEventAction(
   formData: FormData,
 ): Promise<SaveEventState> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "ログインし直してください" };
 
   const membership = await getCompanyMembership(user.id);
@@ -93,9 +92,7 @@ export async function updateEventAction(
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "ログインし直してください" };
 
   const membership = await getCompanyMembership(user.id);

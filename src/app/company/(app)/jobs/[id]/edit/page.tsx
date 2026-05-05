@@ -1,5 +1,5 @@
 import { redirect, notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { JobForm } from "@/features/company/app/jobs/components/job-form";
 import { updateJobAction } from "@/features/company/app/jobs/actions/save";
 import {
@@ -18,10 +18,7 @@ export default async function EditJobPage({
 }) {
   const { id } = await params;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/company/login");
 
   const membership = await getCompanyMembership(user.id);

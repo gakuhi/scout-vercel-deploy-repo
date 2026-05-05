@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { companySettingsFormSchema } from "@/features/company/app/settings/schemas";
 import { getCompanyMembership } from "@/features/company/shared/queries";
 import { uploadFile, getPublicUrl, BUCKETS, validateFile } from "@/lib/storage";
@@ -13,9 +14,7 @@ export type SettingsActionState = {
 
 async function requireOwnerOrAdmin() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return null;
   const membership = await getCompanyMembership(user.id);
   if (!membership) return null;

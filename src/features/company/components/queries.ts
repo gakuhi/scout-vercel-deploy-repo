@@ -1,12 +1,11 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import type { SidebarUser } from "./sidebar";
 
 export async function getSidebarUser(): Promise<SidebarUser | undefined> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return undefined;
 
   const { data } = await supabase

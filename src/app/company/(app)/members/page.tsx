@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { MemberListView } from "@/features/company/app/members/components/member-list-view";
 import {
   getCompanyIdForUser,
@@ -12,10 +12,7 @@ export const metadata = {
 };
 
 export default async function MembersPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/company/login");
   const companyId = await getCompanyIdForUser(user.id);
   if (!companyId) redirect("/company/login");

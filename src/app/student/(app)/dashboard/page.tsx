@@ -5,7 +5,7 @@ import { getHomeData } from "@/features/student/home/lib/queries";
 import { MOCK_HOME_DATA } from "@/features/student/home/mock";
 import { getProfile } from "@/features/student/profile/queries";
 import { computeProfileCompletion } from "@/features/student/profile/utils";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 
 export const metadata = {
   title: "ダッシュボード | Scout",
@@ -21,10 +21,7 @@ export default async function StudentDashboardPage({
   const params = await searchParams;
   const useMock = params.mock === "1";
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = useMock ? null : await getAuthUser();
 
   if (!useMock && !user) {
     redirect("/student/login");

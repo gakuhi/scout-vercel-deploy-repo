@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import {
   jobPostingDraftSchema,
   jobPostingSchema,
@@ -19,9 +20,7 @@ export async function createJobAction(
   formData: FormData,
 ): Promise<SaveJobState> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "ログインし直してください" };
 
   const membership = await getCompanyMembership(user.id);
@@ -103,9 +102,7 @@ export async function updateJobAction(
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "ログインし直してください" };
 
   const membership = await getCompanyMembership(user.id);

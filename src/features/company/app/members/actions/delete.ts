@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getCompanyIdForUser,
@@ -16,10 +16,7 @@ export type DeleteMemberState = {
 export async function deleteMemberAction(
   memberId: string,
 ): Promise<DeleteMemberState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "ログインし直してください" };
 
   const [companyId, role] = await Promise.all([

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { jobPostingSchema } from "@/features/company/app/jobs/schemas";
 import { getCompanyMembership } from "@/features/company/app/jobs/queries";
 
@@ -15,9 +16,7 @@ export async function togglePublishAction(
   publish: boolean,
 ): Promise<TogglePublishState> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "ログインし直してください" };
 
   const membership = await getCompanyMembership(user.id);
@@ -90,9 +89,7 @@ export async function deleteJobAction(
   jobId: string,
 ): Promise<TogglePublishState> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { error: "ログインし直してください" };
 
   const membership = await getCompanyMembership(user.id);
