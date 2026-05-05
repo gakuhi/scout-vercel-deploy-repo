@@ -31,6 +31,24 @@ export const MOCK_SCOUTS: ScoutItem[] = [
       employeeCountRange: "500-1,000名",
       culture:
         "成果主義と心理的安全性を両立。20 代でも実力次第で大型プロジェクトのリード（PM）を任され、提案・採用・社内 R&D まで横断的に関わることができます。海外オフィスとのジョイントケースが日常的にあり、社内では週次の勉強会・四半期ごとのオフサイト・1on1 文化が根付いています。服装・働く時間・場所は本人裁量。OKR で目標を定め、評価は半期ごとの 360 度フィードバックで透明に決まります。",
+      culturePhotos: [
+        {
+          url: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&h=600&fit=crop&auto=format",
+          caption: "チームの作業フロア",
+        },
+        {
+          url: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&h=600&fit=crop&auto=format",
+          caption: "プロジェクト討議の様子",
+        },
+        {
+          url: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=800&h=600&fit=crop&auto=format",
+          caption: "チームランチ",
+        },
+        {
+          url: "https://images.unsplash.com/photo-1497215842964-222b430dc094?w=800&h=600&fit=crop&auto=format",
+          caption: "オフィスラウンジ",
+        },
+      ],
       websiteUrl: "https://example-gsp.com",
     },
     job: {
@@ -70,6 +88,16 @@ export const MOCK_SCOUTS: ScoutItem[] = [
       employeeCountRange: "10,000名以上",
       culture:
         "100年企業ならではの安定基盤を活かしつつ、新規事業ラボでは少人数の機動的な編成で挑戦を奨励。研修制度と評価制度が整っています。",
+      culturePhotos: [
+        {
+          url: "https://images.unsplash.com/photo-1497215842964-222b430dc094?w=800&h=600&fit=crop&auto=format",
+          caption: "本社オフィスラウンジ",
+        },
+        {
+          url: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&h=600&fit=crop&auto=format",
+          caption: "アナリストフロア",
+        },
+      ],
       websiteUrl: "https://example-heritage.com",
     },
     job: {
@@ -104,6 +132,12 @@ export const MOCK_SCOUTS: ScoutItem[] = [
       employeeCountRange: "100-500名",
       culture:
         "プロダクト主導のフラットな組織。週 1 のシップ会で開発成果を全員で共有し、エンジニア比率は 60% 超。リモートと出社を本人が選べます。",
+      culturePhotos: [
+        {
+          url: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=800&h=600&fit=crop&auto=format",
+          caption: "シップ会の様子",
+        },
+      ],
       websiteUrl: "https://example-nexus.com",
     },
     job: {

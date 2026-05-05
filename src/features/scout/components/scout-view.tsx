@@ -414,26 +414,30 @@ function CompanyLogo({
   );
 }
 
-function JobHeroBanner({
+// テスト容易性のため named export にしている。アプリ実装からは
+// ScoutView 経由でのみ使い、外部から直接 import しないこと。
+export function JobHeroBanner({
   company,
   job,
 }: {
   company: ScoutItem["company"];
   job: ScoutItem["job"];
 }) {
-  // 求人画像 (job_postings.hero_image_path) があればそれを使う。
-  // 未設定なら picsum.photos の seed 付き placeholder（企業名 seed で安定）。
-  const imageUrl =
-    job.heroImageUrl ??
-    `https://picsum.photos/seed/${encodeURIComponent(company.name)}/1200/400`;
   return (
     <div className="relative rounded-xl overflow-hidden h-36 md:h-44 shadow-sm">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={imageUrl}
-        alt={`${company.name} のバナー`}
-        className="w-full h-full object-cover"
-      />
+      {job.heroImageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={job.heroImageUrl}
+          alt={`${company.name} のバナー`}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-linear-to-br from-primary-container to-primary"
+        />
+      )}
       <div className="absolute inset-0 bg-linear-to-t from-black/50 via-black/10 to-transparent" />
       <div className="absolute left-5 md:left-8 bottom-4 md:bottom-5">
         <p className="text-[10px] font-bold text-white/80 tracking-[0.2em] uppercase mb-1">
@@ -597,7 +601,7 @@ function ScoutDetail({
                 previewLines={3}
               />
             </div>
-            <CulturePhotoGrid companyName={scout.company.name} />
+            <CulturePhotoGrid photos={scout.company.culturePhotos ?? []} />
           </div>
         )}
         {scout.job.benefits && (
@@ -635,50 +639,34 @@ function ScoutDetail({
   );
 }
 
-/** 社風・風土カード下部に出す職場風景写真。DB 連携前の見た目用。
- *  会社名で seed して同じ会社には同じ並びが出るようにする。
- *  URL は Unsplash の公開写真 ID 直リンク（office/team/workspace 等）。 */
-const CULTURE_PHOTOS: ReadonlyArray<{ url: string; caption: string }> = [
-  {
-    url:
-      "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&h=600&fit=crop&auto=format",
-    caption: "チームの作業フロア",
-  },
-  {
-    url:
-      "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&h=600&fit=crop&auto=format",
-    caption: "プロジェクト討議の様子",
-  },
-  {
-    url:
-      "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=800&h=600&fit=crop&auto=format",
-    caption: "チームランチ",
-  },
-  {
-    url:
-      "https://images.unsplash.com/photo-1497215842964-222b430dc094?w=800&h=600&fit=crop&auto=format",
-    caption: "オフィスラウンジ",
-  },
-];
+type CulturePhoto = {
+  url: string;
+  caption: string;
+};
 
-function CulturePhotoGrid({ companyName }: { companyName: string }) {
-  // 会社名をハッシュして表示順をシャッフルする（同じ会社には同じ順序）。
-  const seed = Array.from(companyName).reduce(
-    (acc, ch) => (acc * 31 + ch.charCodeAt(0)) & 0xffffffff,
-    0,
-  );
-  const offset = Math.abs(seed) % CULTURE_PHOTOS.length;
-  const rotated = [...CULTURE_PHOTOS, ...CULTURE_PHOTOS].slice(
-    offset,
-    offset + CULTURE_PHOTOS.length,
-  );
-
+/**
+ * 社風・風土カード下部に出す職場風景写真カルーセル。
+ * photos が空配列のときはセクションごと非表示（return null）。
+ * DB 側に画像カラムができるまでは呼び出し側で `[]` を渡す。
+ *
+ * テスト容易性のため named export にしている。アプリ実装からは
+ * ScoutDetail 経由でのみ使い、外部から直接 import しないこと。
+ */
+export function CulturePhotoGrid({
+  photos,
+}: {
+  photos: ReadonlyArray<CulturePhoto>;
+}) {
+  // Rules of Hooks: 早期 return より前に必ず useState を呼ぶ。
   const [index, setIndex] = useState(0);
-  const total = rotated.length;
-  const current = rotated[index];
+
+  if (photos.length === 0) return null;
+
+  const total = photos.length;
+  const safeIndex = ((index % total) + total) % total;
+  const current = photos[safeIndex];
   const go = (next: number) => setIndex(((next % total) + total) % total);
 
-  if (!current) return null;
   return (
     <div className="space-y-2">
       <div className="relative aspect-[16/9] overflow-hidden rounded-lg bg-surface-container-low">
@@ -689,36 +677,40 @@ function CulturePhotoGrid({ companyName }: { companyName: string }) {
           className="w-full h-full object-cover"
           loading="lazy"
         />
-        <button
-          type="button"
-          aria-label="前の写真"
-          onClick={() => go(index - 1)}
-          className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full w-9 h-9 grid place-items-center transition-colors"
-        >
-          <Icon name="chevron_left" />
-        </button>
-        <button
-          type="button"
-          aria-label="次の写真"
-          onClick={() => go(index + 1)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full w-9 h-9 grid place-items-center transition-colors"
-        >
-          <Icon name="chevron_right" />
-        </button>
-        <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
-          {rotated.map((_, i) => (
+        {total > 1 && (
+          <>
             <button
-              key={i}
               type="button"
-              aria-label={`${i + 1} 枚目を表示`}
-              aria-current={i === index}
-              onClick={() => setIndex(i)}
-              className={`h-1.5 rounded-full transition-all ${
-                i === index ? "w-6 bg-white" : "w-1.5 bg-white/60"
-              }`}
-            />
-          ))}
-        </div>
+              aria-label="前の写真"
+              onClick={() => go(safeIndex - 1)}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full w-9 h-9 grid place-items-center transition-colors"
+            >
+              <Icon name="chevron_left" />
+            </button>
+            <button
+              type="button"
+              aria-label="次の写真"
+              onClick={() => go(safeIndex + 1)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full w-9 h-9 grid place-items-center transition-colors"
+            >
+              <Icon name="chevron_right" />
+            </button>
+            <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
+              {photos.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={`${i + 1} 枚目を表示`}
+                  aria-current={i === safeIndex}
+                  onClick={() => setIndex(i)}
+                  className={`h-1.5 rounded-full transition-all ${
+                    i === safeIndex ? "w-6 bg-white" : "w-1.5 bg-white/60"
+                  }`}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
       <p className="text-xs text-outline text-center">{current.caption}</p>
     </div>

@@ -15,6 +15,12 @@ type ScoutCompany = {
   description: string | null;
   /** 社風・風土。companies.culture 由来の自由記述。 */
   culture: string | null;
+  /**
+   * 社風セクションのカルーセルに出す職場風景写真。
+   * DB に画像カラムが追加されるまでは mock のみで設定し、
+   * 実データ経路では undefined のまま（CulturePhotoGrid 側で非表示）。
+   */
+  culturePhotos?: ReadonlyArray<{ url: string; caption: string }>;
   employeeCountRange: string | null;
   websiteUrl: string | null;
 };

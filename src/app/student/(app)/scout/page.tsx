@@ -34,12 +34,10 @@ export default async function StudentScoutPage({
     redirect("/student/login");
   }
 
-  // 明示的にモック指定、または開発環境で実データが空なら mock を流し込む
-  const shouldFallback =
-    useMock ||
-    (process.env.NODE_ENV === "development" && (real?.length ?? 0) === 0);
-
-  const scouts = shouldFallback ? MOCK_SCOUTS : (real ?? []);
+  // モックは ?mock=1 の明示指定時のみ。
+  // dev で実データが空でもモックには勝手にフォールバックしない（実 DB の空状態を
+  // 観測できなくなるため）。プレビュー用途は ?mock=1 で開く運用に統一する。
+  const scouts = useMock ? MOCK_SCOUTS : (real ?? []);
 
   return <ScoutView scouts={scouts} initialFilter={initialFilter} />;
 }
