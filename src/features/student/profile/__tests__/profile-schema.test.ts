@@ -135,3 +135,42 @@ describe("profileSchema 公開設定", () => {
     expect(profileSchema.safeParse(data).success).toBe(true);
   });
 });
+
+// ─── birthdate range / format ───
+
+describe("profileSchema 生年月日", () => {
+  it("YYYY-MM-DD 以外の形式を拒否する", () => {
+    const data = { ...validData(), birthdate: "2003/05/15" };
+    const result = profileSchema.safeParse(data);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toMatch(/YYYY-MM-DD/);
+    }
+  });
+
+  it("実在しない日付（2 月 31 日）を拒否する", () => {
+    const data = { ...validData(), birthdate: "2003-02-31" };
+    expect(profileSchema.safeParse(data).success).toBe(false);
+  });
+
+  it("未来日付を拒否する", () => {
+    const future = new Date();
+    future.setFullYear(future.getFullYear() + 1);
+    const y = future.getFullYear();
+    const data = { ...validData(), birthdate: `${y}-01-01` };
+    expect(profileSchema.safeParse(data).success).toBe(false);
+  });
+
+  it("60 年以上前の日付を拒否する", () => {
+    const tooOld = new Date();
+    tooOld.setFullYear(tooOld.getFullYear() - 70);
+    const y = tooOld.getFullYear();
+    const data = { ...validData(), birthdate: `${y}-01-01` };
+    expect(profileSchema.safeParse(data).success).toBe(false);
+  });
+
+  it("60 年以内の有効日付を受け入れる", () => {
+    const data = { ...validData(), birthdate: "2003-05-15" };
+    expect(profileSchema.safeParse(data).success).toBe(true);
+  });
+});

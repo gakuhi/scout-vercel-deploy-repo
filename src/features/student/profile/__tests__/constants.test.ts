@@ -2,16 +2,16 @@ import { describe, it, expect } from "vitest";
 import { getGraduationYearOptions } from "@/features/student/profile/constants";
 
 describe("getGraduationYearOptions", () => {
-  it("指定した基準日の -2 年から +8 年までを返す", () => {
+  it("指定した基準日の -2 年から +6 年までを返す", () => {
     const now = new Date("2026-06-15T00:00:00Z");
     const years = getGraduationYearOptions(now);
     expect(years[0]).toBe(2024);
-    expect(years[years.length - 1]).toBe(2034);
+    expect(years[years.length - 1]).toBe(2032);
   });
 
-  it("11 件（現在年 -2 〜 +8）を返す", () => {
+  it("9 件（現在年 -2 〜 +6）を返す", () => {
     const now = new Date("2026-06-15T00:00:00Z");
-    expect(getGraduationYearOptions(now)).toHaveLength(11);
+    expect(getGraduationYearOptions(now)).toHaveLength(9);
   });
 
   it("昇順にソートされている", () => {

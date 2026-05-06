@@ -68,6 +68,7 @@ describe("ProfileForm (mode=create) 初期表示", () => {
     expect(screen.getByLabelText(/セイ（カタカナ）/)).toBeInTheDocument();
     expect(screen.getByLabelText(/メイ（カタカナ）/)).toBeInTheDocument();
     expect(screen.getByLabelText(/電話番号/)).toBeInTheDocument();
+    // jsdom 環境では useIsMobile が初期値 false → DatePicker (PC 用) のみ描画される。
     expect(screen.getByLabelText(/生年月日/)).toBeInTheDocument();
     expect(screen.getByLabelText(/郵便番号/)).toBeInTheDocument();
     expect(screen.getByLabelText(/都道府県/)).toBeInTheDocument();
@@ -84,11 +85,11 @@ describe("ProfileForm (mode=create) 初期表示", () => {
 });
 
 describe("ProfileForm (mode=create) 卒業予定年", () => {
-  it("現在年を基準とした 11 件の選択肢が存在する", () => {
+  it("現在年を基準とした 9 件の選択肢が存在する", () => {
     render(<ProfileForm mode="create" profile={emptyProfile("u@example.com")} mbtiTypes={mbtiTypes} />);
     const select = screen.getByLabelText(/卒業予定年/) as HTMLSelectElement;
-    // 先頭の「選択してください」+ 11 件
-    expect(select.options).toHaveLength(12);
+    // 先頭の「選択してください」+ 9 件
+    expect(select.options).toHaveLength(10);
     const expected = getGraduationYearOptions();
     for (const year of expected) {
       expect(select.querySelector(`option[value="${year}"]`)).not.toBeNull();

@@ -17,9 +17,12 @@ export function StudentAppShell({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const isProfilePage = pathname.startsWith("/student/profile");
-  // プレビューは banner が top-0 に fixed で貼られるため、ハンバーガー / TopNav と
-  // 位置が被る。プレビュー中は学生向けのトップボタンを隠す（PC のサイドバーは残す）
-  const isPreviewPage = pathname === "/student/profile/preview";
+  // フォームに集中させたいページではモバイルのトップ領域から遷移ボタンを排除する。
+  // - プレビュー: banner が top-0 fixed でハンバーガーと位置が被る
+  // - 編集: フォーム入力に集中、画面下部のキャンセルボタンが離脱導線
+  const hidesMobileMenu =
+    pathname === "/student/profile/preview" ||
+    pathname === "/student/profile/edit";
 
   return (
     <div className="min-h-screen bg-surface">
@@ -28,7 +31,7 @@ export function StudentAppShell({
         onClose={() => setSidebarOpen(false)}
         user={user}
       />
-      {!isPreviewPage &&
+      {!hidesMobileMenu &&
         (isProfilePage ? (
           <button
             type="button"

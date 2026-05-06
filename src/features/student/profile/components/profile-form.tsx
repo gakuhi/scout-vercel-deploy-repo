@@ -11,6 +11,10 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
+import DatePicker, { registerLocale } from "react-datepicker";
+import Picker from "react-mobile-picker";
+import { ja } from "date-fns/locale";
+import "react-datepicker/dist/react-datepicker.css";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import {
@@ -20,6 +24,9 @@ import {
 } from "@/features/student/profile/actions";
 import { profileSchema } from "@/features/student/profile/schema";
 import { getGraduationYearOptions } from "@/features/student/profile/constants";
+
+// react-datepicker のヘッダー / 月名 / 曜日表記を日本語化する。
+registerLocale("ja", ja);
 
 const GRADUATION_YEARS = getGraduationYearOptions();
 
@@ -107,12 +114,17 @@ export function ProfileForm(props: ProfileFormProps) {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isValid, isSubmitting },
   } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     mode: "onChange",
     defaultValues: buildDefaultValues(props.profile),
   });
+
+  // birthdate は DatePicker (カレンダー UI) で setValue 経由で更新するため
+  // 明示的に register して validation 対象にする。
+  register("birthdate");
 
   const lastName = watch("last_name") ?? "";
   const firstName = watch("first_name") ?? "";
@@ -255,9 +267,16 @@ export function ProfileForm(props: ProfileFormProps) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Field id="birthdate" label="生年月日" required error={errors.birthdate?.message}>
-            <input id="birthdate" type="date" className={inputClass} {...register("birthdate")} />
-          </Field>
+          <BirthdateField
+            value={watch("birthdate") ?? ""}
+            onChange={(v) =>
+              setValue("birthdate", v, {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
+            error={errors.birthdate?.message}
+          />
           <Field id="gender" label="性別" required error={errors.gender?.message}>
             <select id="gender" className={inputClass} {...register("gender")}>
               <option value="">選択してください</option>
@@ -533,4 +552,547 @@ function Field({
       {error && <p className="text-[11px] text-error font-medium ml-1">{error}</p>}
     </div>
   );
+}
+
+/**
+ * 生年月日入力。`<input type="date">` のネイティブ picker は年スクロールが
+ * 重いため、デバイスごとに UI を出し分ける:
+ * - PC (md+): react-datepicker の calendar UI。年は scrollable dropdown
+ * - モバイル (< md): react-mobile-picker の iOS 風 wheel UI（年/月/日 3 列）
+ *
+ * 値は YYYY-MM-DD 形式の文字列で外部とやり取り。未来日付・60 年以上前は
+ * range で制限。
+ */
+function BirthdateField({
+  value,
+  onChange,
+  error,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+}) {
+  const today = new Date();
+  // ISO 文字列の new Date() は UTC で解釈されてズレるので、yyyy-mm-dd を
+  // ローカルタイム扱いで Date 化する。
+  const selected = parseLocalDate(value);
+  const minDate = new Date(today.getFullYear() - 60, 0, 1);
+  // SSR/初期 render は PC 想定で DatePicker を出し、mount 後にメディアクエリを
+  // 評価して一方だけに切り替える（両方 mount を回避）。
+  const isMobile = useIsMobile();
+
+  return (
+    <Field id="birthdate" label="生年月日" required error={error}>
+      {isMobile ? (
+        <BirthdateWheel
+          value={value}
+          onChange={onChange}
+          minYear={minDate.getFullYear()}
+          maxYear={today.getFullYear()}
+        />
+      ) : (
+        <DatePicker
+          id="birthdate"
+          selected={selected}
+          onChange={(d: Date | null) => onChange(d ? formatYMD(d) : "")}
+          dateFormat="yyyy/MM/dd"
+          locale="ja"
+          maxDate={today}
+          minDate={minDate}
+          placeholderText="日付を選択"
+          className={inputClass}
+          wrapperClassName="block w-full"
+          popperClassName="z-50"
+          renderCustomHeader={(p) => (
+            <BirthdateHeader
+              {...p}
+              minYear={minDate.getFullYear()}
+              maxYear={today.getFullYear()}
+            />
+          )}
+        />
+      )}
+    </Field>
+  );
+}
+
+/**
+ * モバイル幅向け: 通常はカレンダー UI で日タップ。header の年/月は
+ * タップで wheel picker overlay が出る形にする。
+ *
+ * - 年/月の display 状態は内部 state で持ち、ユーザーが wheel を回すたびに
+ *   すぐカレンダーグリッドに反映する
+ * - 既に日が選択済みなら wheel で年/月が変わった時点で form value も追従する
+ *   （日未選択時は wheel 操作だけでは emit しない → 日タップで初確定）
+ */
+function BirthdateWheel({
+  value,
+  onChange,
+  minYear,
+  maxYear,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  minYear: number;
+  maxYear: number;
+}) {
+  const parsed = parseBirthdateParts(value);
+  const fallbackYear = Math.max(minYear, maxYear - 20);
+  // 表示中の年/月は内部 state で持ち、外部 value と独立させる
+  // （日未選択でも年/月だけ動かしたいケースのため）。初期値は mount 時に value から決定。
+  const [displayYear, setDisplayYear] = useState(parsed?.y ?? fallbackYear);
+  const [displayMonth, setDisplayMonth] = useState(parsed?.m ?? 1);
+  const [openWheel, setOpenWheel] = useState<"year" | "month" | null>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const day = parsed?.d ?? null;
+
+  // 外部 value が変わった（フォームリセット等）かつパース可能なら display 状態を同期。
+  // value 文字列の同一性で判定するので無限ループしない。
+  const lastSyncedRef = useRef(value);
+  useEffect(() => {
+    if (lastSyncedRef.current === value) return;
+    lastSyncedRef.current = value;
+    const next = parseBirthdateParts(value);
+    if (next) {
+      setDisplayYear(next.y);
+      setDisplayMonth(next.m);
+    }
+  }, [value]);
+
+  const emit = (y: number, m: number, d: number | null) => {
+    if (d == null) return;
+    const lastDay = new Date(y, m, 0).getDate();
+    const adjusted = Math.min(d, lastDay);
+    onChange(
+      `${y}-${String(m).padStart(2, "0")}-${String(adjusted).padStart(2, "0")}`,
+    );
+  };
+
+  const setYear = (y: number) => {
+    setDisplayYear(y);
+    emit(y, displayMonth, day);
+  };
+  const setMonth = (m: number) => {
+    setDisplayMonth(m);
+    emit(displayYear, m, day);
+  };
+  const handleDayTap = (d: number) => {
+    emit(displayYear, displayMonth, d);
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setCalendarOpen(true)}
+        className={`${inputClass} text-left ${
+          parsed ? "text-on-surface" : "text-on-surface-variant/60"
+        }`}
+        aria-label="生年月日を選択"
+      >
+        {parsed
+          ? `${parsed.y}年${parsed.m}月${parsed.d}日`
+          : "日付を選択"}
+      </button>
+      {calendarOpen && (
+        <CalendarModal
+          onClose={() => setCalendarOpen(false)}
+          displayYear={displayYear}
+          displayMonth={displayMonth}
+          onTapYear={() => setOpenWheel("year")}
+          onTapMonth={() => setOpenWheel("month")}
+          selectedDay={
+            // 表示中の年/月と form 上の年/月が一致するときだけ選択日をハイライト。
+            parsed && parsed.y === displayYear && parsed.m === displayMonth
+              ? day
+              : null
+          }
+          onSelectDay={handleDayTap}
+        />
+      )}
+      {openWheel && (
+        <WheelOverlay
+          type={openWheel}
+          year={displayYear}
+          month={displayMonth}
+          minYear={minYear}
+          maxYear={maxYear}
+          onYearChange={setYear}
+          onMonthChange={setMonth}
+          onClose={() => setOpenWheel(null)}
+        />
+      )}
+    </>
+  );
+}
+
+/** モバイル用 calendar モーダル本体。a11y 副作用 (ESC / scroll lock) も担う。 */
+function CalendarModal({
+  onClose,
+  displayYear,
+  displayMonth,
+  onTapYear,
+  onTapMonth,
+  selectedDay,
+  onSelectDay,
+}: {
+  onClose: () => void;
+  displayYear: number;
+  displayMonth: number;
+  onTapYear: () => void;
+  onTapMonth: () => void;
+  selectedDay: number | null;
+  onSelectDay: (day: number) => void;
+}) {
+  useModalEffects(true, onClose);
+  const titleId = "birthdate-calendar-title";
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+    >
+      <div
+        className="w-full max-w-xs bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant/30">
+          <span id={titleId} className="text-sm font-bold text-on-surface">
+            生年月日を選択
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1 rounded-lg text-sm font-bold text-primary-container hover:bg-surface-container"
+          >
+            完了
+          </button>
+        </div>
+        <div className="flex items-center justify-center gap-2 px-3 py-3 border-b border-outline-variant/30">
+          <button
+            type="button"
+            onClick={onTapYear}
+            className="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-sm font-bold text-on-surface flex items-center gap-1"
+            aria-label="年を選択"
+          >
+            {displayYear}年
+            <Icon name="expand_more" className="text-base text-outline" />
+          </button>
+          <button
+            type="button"
+            onClick={onTapMonth}
+            className="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-sm font-bold text-on-surface flex items-center gap-1"
+            aria-label="月を選択"
+          >
+            {displayMonth}月
+            <Icon name="expand_more" className="text-base text-outline" />
+          </button>
+        </div>
+        <MiniDayGrid
+          year={displayYear}
+          month={displayMonth}
+          selectedDay={selectedDay}
+          onSelect={onSelectDay}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** 年または月を回せる wheel picker のオーバーレイ。タップ時にだけ展開する。 */
+function WheelOverlay({
+  type,
+  year,
+  month,
+  minYear,
+  maxYear,
+  onYearChange,
+  onMonthChange,
+  onClose,
+}: {
+  type: "year" | "month";
+  year: number;
+  month: number;
+  minYear: number;
+  maxYear: number;
+  onYearChange: (y: number) => void;
+  onMonthChange: (m: number) => void;
+  onClose: () => void;
+}) {
+  const years = Array.from({ length: maxYear - minYear + 1 }, (_, i) =>
+    String(maxYear - i),
+  );
+  const months = Array.from({ length: 12 }, (_, i) =>
+    String(i + 1).padStart(2, "0"),
+  );
+
+  const value: Record<string, string> =
+    type === "year"
+      ? { year: String(year) }
+      : { month: String(month).padStart(2, "0") };
+
+  const handleChange = (v: Record<string, string>) => {
+    if (type === "year" && v.year) onYearChange(Number(v.year));
+    if (type === "month" && v.month) onMonthChange(Number(v.month));
+  };
+
+  useModalEffects(true, onClose);
+  const titleId = `wheel-overlay-title-${type}`;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+    >
+      <div
+        className="w-full max-w-xs bg-surface-container-lowest rounded-2xl shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant/30">
+          <span id={titleId} className="text-sm font-bold text-on-surface">
+            {type === "year" ? "年" : "月"}を選択
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1 rounded-lg text-sm font-bold text-primary-container hover:bg-surface-container"
+          >
+            完了
+          </button>
+        </div>
+        <div className="px-4 py-3">
+          <Picker
+            value={value}
+            onChange={handleChange}
+            height={200}
+            itemHeight={40}
+            wheelMode="natural"
+          >
+            {type === "year" ? (
+              <Picker.Column name="year">
+                {years.map((y) => (
+                  <Picker.Item key={y} value={y}>
+                    {({ selected }) => (
+                      <span
+                        className={
+                          selected
+                            ? "text-lg font-bold text-primary"
+                            : "text-base text-on-surface-variant/60"
+                        }
+                      >
+                        {y}年
+                      </span>
+                    )}
+                  </Picker.Item>
+                ))}
+              </Picker.Column>
+            ) : (
+              <Picker.Column name="month">
+                {months.map((m) => (
+                  <Picker.Item key={m} value={m}>
+                    {({ selected }) => (
+                      <span
+                        className={
+                          selected
+                            ? "text-lg font-bold text-primary"
+                            : "text-base text-on-surface-variant/60"
+                        }
+                      >
+                        {Number(m)}月
+                      </span>
+                    )}
+                  </Picker.Item>
+                ))}
+              </Picker.Column>
+            )}
+          </Picker>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 指定の年/月の日付グリッド。日タップで選択を通知する。 */
+function MiniDayGrid({
+  year,
+  month,
+  selectedDay,
+  onSelect,
+}: {
+  year: number;
+  month: number;
+  selectedDay: number | null;
+  onSelect: (day: number) => void;
+}) {
+  // JS Date(year, monthIndex(0-11), 1) → 月の 1 日。getDay() が 0(日)〜6(土)。
+  const firstWeekday = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  // 1 日の前にダミーセルを並べて grid 上の位置を合わせる。
+  const cells: (number | null)[] = [
+    ...Array(firstWeekday).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+
+  return (
+    <div className="border-t border-outline-variant/30 px-3 py-3">
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {weekdays.map((w, i) => (
+          <div
+            key={w}
+            className={`text-[10px] text-center font-bold ${
+              i === 0
+                ? "text-error"
+                : i === 6
+                  ? "text-primary-container"
+                  : "text-on-surface-variant"
+            }`}
+          >
+            {w}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((d, i) =>
+          d === null ? (
+            <div key={`empty-${i}`} />
+          ) : (
+            <button
+              key={d}
+              type="button"
+              onClick={() => onSelect(d)}
+              className={`h-8 rounded text-sm font-medium transition-colors ${
+                selectedDay === d
+                  ? "bg-primary-container text-white font-bold"
+                  : "text-on-surface hover:bg-surface-container"
+              }`}
+            >
+              {d}
+            </button>
+          ),
+        )}
+      </div>
+    </div>
+  );
+}
+
+function parseBirthdateParts(
+  value: string,
+): { y: number; m: number; d: number } | null {
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) };
+}
+
+function parseLocalDate(value: string): Date | null {
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+
+/**
+ * react-datepicker のカレンダー header を「左に年 / 右に月」の dropdown 並びで
+ * 描画する。デフォルト header は month → year の順で日本語的に違和感があるため
+ * 自前で組む。年は minYear〜maxYear を新しい順に列挙、月は 1〜12 月。
+ */
+function BirthdateHeader({
+  date,
+  changeYear,
+  changeMonth,
+  minYear,
+  maxYear,
+}: {
+  date: Date;
+  changeYear: (y: number) => void;
+  changeMonth: (m: number) => void;
+  minYear: number;
+  maxYear: number;
+}) {
+  const years = Array.from({ length: maxYear - minYear + 1 }, (_, i) =>
+    maxYear - i,
+  );
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  return (
+    <div className="flex items-center justify-between gap-2 px-2 py-2">
+      <select
+        aria-label="年"
+        value={date.getFullYear()}
+        onChange={(e) => changeYear(Number(e.target.value))}
+        className="px-2 py-1 rounded border border-outline-variant/40 bg-surface-container-lowest text-sm font-bold text-on-surface"
+      >
+        {years.map((y) => (
+          <option key={y} value={y}>
+            {y}年
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="月"
+        value={date.getMonth() + 1}
+        onChange={(e) => changeMonth(Number(e.target.value) - 1)}
+        className="px-2 py-1 rounded border border-outline-variant/40 bg-surface-container-lowest text-sm font-bold text-on-surface"
+      >
+        {months.map((m) => (
+          <option key={m} value={m}>
+            {m}月
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function formatYMD(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Modal を開いている間の共通副作用:
+ * - body の overflow を hidden にして背景スクロールを止める
+ * - ESC キーで onClose を発火する
+ *
+ * 同 component 内に複数の modal があるため、入れ子で使う場合も干渉しないよう
+ * mount 時の overflow 値を保存して復元する。
+ */
+function useModalEffects(open: boolean, onClose: () => void): void {
+  useEffect(() => {
+    if (!open) return;
+    if (typeof document === "undefined") return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => {
+      document.body.style.overflow = original;
+      document.removeEventListener("keydown", handler);
+    };
+  }, [open, onClose]);
+}
+
+/**
+ * tailwind の md (768px) ブレークポイント未満なら true。SSR / 初期 render は
+ * false を返すため、最初は PC 想定で hydrate される。jsdom / 古いブラウザの
+ * matchMedia 未対応環境でも安全に動くよう存在チェックする。
+ */
+function useIsMobile(breakpoint = 768): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [breakpoint]);
+  return isMobile;
 }
