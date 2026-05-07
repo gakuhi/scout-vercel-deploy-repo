@@ -19,7 +19,7 @@ const PUBLIC_PREFIXES = [
 ] as const;
 
 /** 完全一致でだけ public 扱いにするルート（startsWith だと配下が全部 public 化されるため別扱い） */
-const PUBLIC_EXACT = ["/business"] as const;
+const PUBLIC_EXACT = ["/business", "/terms", "/privacy"] as const;
 
 function isPublicRoute(pathname: string): boolean {
   if ((PUBLIC_EXACT as readonly string[]).includes(pathname)) return true;
