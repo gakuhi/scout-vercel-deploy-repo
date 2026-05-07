@@ -18,8 +18,12 @@ const PUBLIC_PREFIXES = [
   "/company/confirm",           // ← 追加
 ] as const;
 
-/** 完全一致でだけ public 扱いにするルート（startsWith だと配下が全部 public 化されるため別扱い） */
-const PUBLIC_EXACT = ["/business", "/terms", "/privacy"] as const;
+/**
+ * 完全一致でだけ public 扱いにするルート。
+ * "/" を PUBLIC_PREFIXES に入れると startsWith で全パスにマッチしてしまうため、
+ * ルート (学生向け LP) や LP 系ページはここで完全一致判定する。
+ */
+const PUBLIC_EXACT = ["/", "/business", "/terms", "/privacy"] as const;
 
 function isPublicRoute(pathname: string): boolean {
   if ((PUBLIC_EXACT as readonly string[]).includes(pathname)) return true;
