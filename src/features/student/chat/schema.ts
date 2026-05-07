@@ -53,6 +53,16 @@ export type ChatConversation = {
   startedAt: string;
   unreadCount: number;
   online: boolean;
+  /** スカウトの内容サマリ。メッセージ画面の最上部に表示して
+   * 「どのスカウトから始まった会話か」を学生が思い出せるようにする。 */
+  scoutSummary: {
+    subject: string;
+    message: string;
+    /** スカウト送信日時（responded_at ではなく sent_at）。 */
+    sentAt: string;
+    /** 紐づく求人タイトル。null の場合は表示しない。 */
+    jobTitle: string | null;
+  };
   /** 詳細ペインに出す、スカウトのサマリ情報。 */
   detail: {
     industry: string;

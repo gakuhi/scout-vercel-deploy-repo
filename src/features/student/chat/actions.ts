@@ -16,6 +16,7 @@ export type SendMessageResult =
 type ScoutRow = {
   id: string;
   subject: string;
+  message: string;
   sent_at: string;
   responded_at: string | null;
   company: {
@@ -30,6 +31,7 @@ type ScoutRow = {
     city: string | null;
     street: string | null;
   };
+  job_postings: { title: string | null } | null;
 };
 
 type ChatMessageDbRow = {
@@ -60,12 +62,13 @@ export async function getConversations(): Promise<ChatConversation[]> {
   const { data: scoutsRaw } = await supabase
     .from("scouts")
     .select(
-      `id, subject, sent_at, responded_at,
+      `id, subject, message, sent_at, responded_at,
        company:companies (
          id, name, industry, logo_url, description,
          employee_count_range, website_url,
          prefecture, city, street
-       )`,
+       ),
+       job_postings ( title )`,
     )
     .eq("student_id", user.id)
     .eq("status", "accepted")
@@ -314,7 +317,26 @@ function scoutToConversation(
       heroImageUrl: null,
       files: [],
     },
+    scoutSummary: {
+      subject: s.subject,
+      message: s.message,
+      sentAt: s.sent_at,
+      // Supabase 型推論で 1:1 リレーションが配列扱いになるケースに両対応。
+      jobTitle: pickJobTitle(s.job_postings),
+    },
   };
+}
+
+function pickJobTitle(
+  jp:
+    | { title: string | null }
+    | { title: string | null }[]
+    | null
+    | undefined,
+): string | null {
+  if (!jp) return null;
+  if (Array.isArray(jp)) return jp[0]?.title ?? null;
+  return jp.title ?? null;
 }
 
 function dbRowToMessage(r: ChatMessageDbRow): ChatMessageRow {

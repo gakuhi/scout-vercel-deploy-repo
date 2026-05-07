@@ -15,6 +15,7 @@ import {
   formatBytes,
   formatDateLabel,
   formatDateMd,
+  formatDateTimeJst,
   formatLastMessagePreview,
   formatRelative,
   formatTime,
@@ -705,7 +706,10 @@ function ChatHeader({
   // NEW バッジはチャット開始（スカウト承諾）から 24 時間以内のみ表示。
   const hasNew = isWithinDay(conversation.startedAt);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scoutExpanded, setScoutExpanded] = useState(false);
   const menuWrapRef = useRef<HTMLDivElement>(null);
+  const summary = conversation.scoutSummary;
+  const sentLabel = formatDateTimeJst(summary.sentAt);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -724,55 +728,88 @@ function ChatHeader({
   }, [menuOpen]);
 
   return (
-    <div className="px-5 md:px-6 py-4 flex items-center justify-between border-b border-outline-variant/30">
-      <div className="flex items-center gap-3 min-w-0">
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="一覧に戻る"
-          className="lg:hidden text-on-surface-variant p-1 -ml-1"
-        >
-          <Icon name="arrow_back" />
-        </button>
-        <h2 className="text-sm md:text-base font-bold text-primary truncate">
-          {conversation.company.name}
-        </h2>
-        {hasNew && (
-          <span className="bg-tertiary-fixed text-tertiary-container px-2 py-0.5 rounded text-[10px] font-bold tracking-wider shrink-0">
-            NEW
-          </span>
-        )}
-      </div>
-      <div className="relative" ref={menuWrapRef}>
-        <button
-          type="button"
-          aria-label="その他"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((v) => !v)}
-          className={cn(
-            "transition-colors p-1",
-            menuOpen ? "text-primary" : "text-outline hover:text-primary",
-          )}
-        >
-          <Icon name="more_vert" filled={menuOpen} />
-        </button>
-        {menuOpen && (
-          <div
-            role="menu"
-            className="absolute top-full right-0 mt-1 w-52 bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-xl py-1 z-20"
+    <div className="border-b border-outline-variant/30">
+      <div className="px-5 md:px-6 pt-4 pb-2 flex items-center justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="一覧に戻る"
+            className="lg:hidden text-on-surface-variant p-1 -ml-1"
           >
-            <ChatMenuItem
-              icon="flag"
-              label="通報する"
-              onClick={() => setMenuOpen(false)}
-            />
-            <ChatMenuItem
-              icon="bug_report"
-              label="不具合を報告する"
-              onClick={() => setMenuOpen(false)}
-            />
+            <Icon name="arrow_back" />
+          </button>
+          <h2 className="text-sm md:text-base font-bold text-primary truncate">
+            {conversation.company.name}
+          </h2>
+          {hasNew && (
+            <span className="bg-tertiary-fixed text-tertiary-container px-2 py-0.5 rounded text-[10px] font-bold tracking-wider shrink-0">
+              NEW
+            </span>
+          )}
+        </div>
+        <div className="relative" ref={menuWrapRef}>
+          <button
+            type="button"
+            aria-label="その他"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+            className={cn(
+              "transition-colors p-1",
+              menuOpen ? "text-primary" : "text-outline hover:text-primary",
+            )}
+          >
+            <Icon name="more_vert" filled={menuOpen} />
+          </button>
+          {menuOpen && (
+            <div
+              role="menu"
+              className="absolute top-full right-0 mt-1 w-52 bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-xl py-1 z-20"
+            >
+              <ChatMenuItem
+                icon="flag"
+                label="通報する"
+                onClick={() => setMenuOpen(false)}
+              />
+              <ChatMenuItem
+                icon="bug_report"
+                label="不具合を報告する"
+                onClick={() => setMenuOpen(false)}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="px-5 md:px-6 pb-3">
+        <div className="flex items-center justify-between gap-2 mb-0.5">
+          <div className="flex items-center gap-1.5 text-[10px] text-outline min-w-0">
+            <Icon name="mail_outline" className="text-xs shrink-0" />
+            <span className="font-bold uppercase tracking-wider shrink-0">
+              スカウト
+            </span>
+            <span className="truncate">{sentLabel}</span>
           </div>
+          <button
+            type="button"
+            onClick={() => setScoutExpanded((v) => !v)}
+            className="text-[10px] font-bold text-primary-container hover:underline shrink-0"
+          >
+            {scoutExpanded ? "閉じる" : "全文"}
+          </button>
+        </div>
+        <p className="text-xs font-bold text-on-surface truncate">
+          {summary.subject}
+          {summary.jobTitle && (
+            <span className="text-[10px] font-normal text-on-surface-variant ml-2">
+              / {summary.jobTitle}
+            </span>
+          )}
+        </p>
+        {scoutExpanded && (
+          <p className="mt-1.5 text-[11px] text-on-surface-variant whitespace-pre-wrap leading-relaxed">
+            {summary.message}
+          </p>
         )}
       </div>
     </div>
@@ -840,15 +877,20 @@ function MessageStream({
 
   if (messages.length === 0) {
     return (
-      <div className="flex-1 grid place-items-center p-10">
-        <div className="text-center">
-          <Icon
-            name="mark_unread_chat_alt"
-            className="text-outline text-4xl mb-2"
-          />
-          <p className="text-sm font-semibold text-on-surface-variant">
-            まだメッセージはありません
-          </p>
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto p-5 md:p-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <div className="grid place-items-center pt-10">
+          <div className="text-center">
+            <Icon
+              name="mark_unread_chat_alt"
+              className="text-outline text-4xl mb-2"
+            />
+            <p className="text-sm font-semibold text-on-surface-variant">
+              まだメッセージはありません
+            </p>
+          </div>
         </div>
       </div>
     );

@@ -64,6 +64,12 @@ function conversation(overrides: Partial<ChatConversation> = {}): ChatConversati
     unreadCount: 0,
     online: false,
     detail: {} as ChatConversation["detail"],
+    scoutSummary: {
+      subject: "テストスカウト",
+      message: "テストメッセージ",
+      sentAt: "2026-04-30T00:00:00Z",
+      jobTitle: null,
+    },
     ...overrides,
   };
 }

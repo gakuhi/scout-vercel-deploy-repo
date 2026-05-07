@@ -61,6 +61,13 @@ export const MOCK_CONVERSATIONS: ChatConversation[] = [
         description: "オンライン開催。録画視聴も可能です。",
       },
     },
+    scoutSummary: {
+      subject: "テクノロジー部門エンジニアポジションのご案内",
+      message:
+        "いつもお世話になっております。GS テクノロジー部門の採用担当です。\n貴方のプロフィールを拝見し、当社のアジア圏テクノロジーチームでぜひお会いしたく、本スカウトをお送りしました。グローバルな金融基盤を支えるエンジニアとして、新領域に挑戦したい方を募集しています。",
+      sentAt: "2026-04-15T08:30:00+09:00",
+      jobTitle: "テクノロジーアナリスト（新卒）",
+    },
   },
   {
     id: "c-2",
@@ -98,6 +105,13 @@ export const MOCK_CONVERSATIONS: ChatConversation[] = [
         },
       ],
     },
+    scoutSummary: {
+      subject: "DX 戦略部門 新卒採用のご案内",
+      message:
+        "三菱商事 採用事務局です。DX 戦略部門で新規事業創出を担う人材を募集しております。海外現法との協働経験を積みたい方、ぜひ一度お話できますと幸いです。",
+      sentAt: "2026-04-10T08:30:00+09:00",
+      jobTitle: "DX 戦略 / 新規事業開発（新卒）",
+    },
   },
   {
     id: "c-3",
@@ -127,6 +141,13 @@ export const MOCK_CONVERSATIONS: ChatConversation[] = [
       heroImageUrl: null,
       files: [],
     },
+    scoutSummary: {
+      subject: "キャリア相談 1on1 のご案内",
+      message:
+        "プロフィール拝見しました。ES の磨き込み・面接対策など、まずは 30 分のカジュアル 1on1 でお悩みをお伺いさせてください。",
+      sentAt: "2026-04-05T07:30:00+09:00",
+      jobTitle: null,
+    },
   },
   {
     id: "c-4",
@@ -155,6 +176,13 @@ export const MOCK_CONVERSATIONS: ChatConversation[] = [
       websiteUrl: "https://about.mercari.com",
       heroImageUrl: null,
       files: [],
+    },
+    scoutSummary: {
+      subject: "プロダクト開発エンジニア カジュアル面談のご案内",
+      message:
+        "メルカリ採用チームです。学生時代のプロダクト開発経験を拝見し、ぜひ一度カジュアル面談でチームの雰囲気をお伝えしたく連絡しました。30 分程度オンラインでいかがでしょうか。",
+      sentAt: "2026-04-25T10:30:00+09:00",
+      jobTitle: "プロダクト開発エンジニア（新卒）",
     },
   },
   {
@@ -200,6 +228,13 @@ export const MOCK_CONVERSATIONS: ChatConversation[] = [
         },
       ],
     },
+    scoutSummary: {
+      subject: "サマージョブ デジタル領域参加のご案内",
+      message:
+        "PwC コンサルティング採用担当です。デジタル戦略チームのサマージョブ（5 日間集中型）にご参加いただきたく、プロフィールを拝見してご連絡しました。",
+      sentAt: "2026-04-08T08:30:00+09:00",
+      jobTitle: "デジタルストラテジー サマージョブ",
+    },
   },
   {
     id: "c-6",
@@ -227,6 +262,13 @@ export const MOCK_CONVERSATIONS: ChatConversation[] = [
       websiteUrl: null,
       heroImageUrl: null,
       files: [],
+    },
+    scoutSummary: {
+      subject: "ソフトウェアエンジニアポジションのご案内",
+      message:
+        "スマートニュース HR です。海外展開を加速するチームでソフトウェアエンジニアを募集しております。グローバルな配信基盤に興味のある方をお待ちしています。",
+      sentAt: "2026-04-01T08:30:00+09:00",
+      jobTitle: "ソフトウェアエンジニア（新卒）",
     },
   },
 ];

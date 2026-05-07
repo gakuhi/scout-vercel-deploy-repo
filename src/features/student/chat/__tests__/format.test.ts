@@ -5,6 +5,7 @@ import {
   formatBytes,
   formatDateLabel,
   formatDateMd,
+  formatDateTimeJst,
   formatLastMessagePreview,
   formatRelative,
   formatTime,
@@ -264,5 +265,27 @@ describe("formatDateMd", () => {
 
   it("無効日時は入力をそのまま返す", () => {
     expect(formatDateMd("not-a-date")).toBe("not-a-date");
+  });
+});
+
+describe("formatDateTimeJst", () => {
+  it("YYYY-MM-DD HH:mm 形式（JST 固定）", () => {
+    // +09:00 のオフセット付き → そのまま JST 表示
+    expect(formatDateTimeJst("2026-04-15T08:30:00+09:00")).toBe(
+      "2026-04-15 08:30",
+    );
+  });
+
+  it("UTC 入力は +9 時間して表示する", () => {
+    // 2026-04-15T00:00:00Z は JST で 09:00
+    expect(formatDateTimeJst("2026-04-15T00:00:00Z")).toBe("2026-04-15 09:00");
+  });
+
+  it("日跨ぎ（UTC 23:00 → JST 翌日 08:00）", () => {
+    expect(formatDateTimeJst("2026-04-14T23:00:00Z")).toBe("2026-04-15 08:00");
+  });
+
+  it("無効日時は入力をそのまま返す", () => {
+    expect(formatDateTimeJst("not-a-date")).toBe("not-a-date");
   });
 });

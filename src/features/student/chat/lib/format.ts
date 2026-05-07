@@ -142,3 +142,23 @@ export function formatDateMd(iso: string): string {
   const weekday = ["日", "月", "火", "水", "木", "金", "土"][d.getDay()];
   return `${d.getMonth() + 1}/${d.getDate()}(${weekday})`;
 }
+
+/**
+ * "YYYY-MM-DD HH:mm" 形式（日本時間固定）。
+ * スカウト送信日時のように、サーバ側で UTC や +09:00 のいずれで保存されていても
+ * 学生が見る時は JST で揃えたい場面で使う。
+ */
+export function formatDateTimeJst(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  // sv-SE ロケールは ISO 風の "YYYY-MM-DD HH:mm" を返すので整形コストが低い。
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+}
